@@ -1,0 +1,267 @@
+/* Teejay Games Design System - Light B2B Wholesale Portal */
+:root {
+  --primary: #B20028;
+  --primary-container: #D7263D;
+  --primary-hover: #E3384E;
+  --primary-fixed: #FFDAD9;
+  --primary-fixed-dim: #FFB3B2;
+  --primary-fixed-subtle: rgba(215, 38, 61, 0.08);
+
+  --surface: #FAF9F7;
+  --surface-dim: #DBDAD8;
+  --surface-bright: #FAF9F7;
+  --surface-lowest: #FFFFFF;
+  --surface-low: #F4F3F1;
+  --surface-container: #EFEEEC;
+  --surface-container-high: #E9E8E6;
+  --surface-container-highest: #E3E2E0;
+
+  --on-surface: #1A1C1B;
+  --on-surface-variant: #5B403F;
+  --on-primary: #FFFFFF;
+  --on-primary-container: #FFF2F1;
+  --secondary: #5D5E63;
+  --secondary-container: #E2E2E8;
+
+  --outline: #906F6E;
+  --border-subtle: #ECE8E4;
+  --border-strong: #D5CFCA;
+
+  --stock-green: #1E824C;
+  --stock-green-bg: #E8F5E9;
+  --alloc-amber: #D97706;
+  --alloc-amber-bg: #FEF3C7;
+  --info-blue: #2563EB;
+  --info-blue-bg: #EFF6FF;
+
+  --font-headline: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 9999px;
+
+  --shadow-sm: 0 1px 3px rgba(20, 22, 26, 0.05);
+  --shadow-card: 0 2px 8px -2px rgba(20, 22, 26, 0.04), 0 1px 4px -1px rgba(20, 22, 26, 0.02);
+  --shadow-hover: 0 8px 24px -4px rgba(215, 38, 61, 0.09), 0 4px 12px -2px rgba(20, 22, 26, 0.04);
+  --shadow-drawer: 0 16px 36px -6px rgba(20, 22, 26, 0.12), 0 6px 16px -2px rgba(20, 22, 26, 0.05);
+
+  --max-width: 1240px;
+  --max-width-wide: 1440px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+  background-color: var(--surface);
+  color: var(--on-surface);
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--surface);
+  color: var(--on-surface);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Material Symbols icon helper */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  vertical-align: middle;
+}
+
+/* Tabular figures for pricing alignment */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Container */
+.container {
+  width: 100%;
+  max-width: var(--max-width);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.container-wide {
+  width: 100%;
+  max-width: var(--max-width-wide);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-headline);
+  color: var(--on-surface);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* Primary buttons */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--primary-container);
+  color: var(--on-primary);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 0.625rem 1.5rem;
+  border-radius: var(--radius-pill);
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(215, 38, 61, 0.25);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(215, 38, 61, 0.35);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+/* Secondary button */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--surface-lowest);
+  color: var(--on-surface);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 0.625rem 1.5rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:hover {
+  background-color: var(--surface-low);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+/* Small pill button */
+.btn-sm {
+  padding: 0.375rem 0.875rem;
+  font-size: 0.8125rem;
+}
+
+/* Badge pills */
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.badge-instock {
+  background-color: var(--stock-green-bg);
+  color: var(--stock-green);
+}
+
+.badge-lowalloc {
+  background-color: var(--alloc-amber-bg);
+  color: var(--alloc-amber);
+}
+
+.badge-digital {
+  background-color: var(--info-blue-bg);
+  color: var(--info-blue);
+}
+
+.badge-category {
+  background-color: var(--surface-container);
+  color: var(--secondary);
+}
+
+/* Cards */
+.card-b2b {
+  background-color: var(--surface-lowest);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+  transition: all 0.2s ease;
+}
+
+.card-b2b:hover {
+  box-shadow: var(--shadow-hover);
+  border-color: #e4c4c4;
+}
+
+/* Custom Scrollbar for matrix table */
+.custom-scroll::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: var(--surface-low);
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: var(--surface-container-highest);
+  border-radius: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary);
+}
+
+/* Micro pulse animation */
+@keyframes pulseDot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+.pulse-dot {
+  animation: pulseDot 2s infinite ease-in-out;
+}
