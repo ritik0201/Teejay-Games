@@ -127,7 +127,7 @@ export const PricingMatrixSection = ({
           </div>
 
           {/* Quick Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button
               onClick={handleExportCSV}
               className="btn-secondary btn-sm"
@@ -135,6 +135,29 @@ export const PricingMatrixSection = ({
             >
               <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--primary-container)' }}>download</span>
               <span>Export CSV Manifest</span>
+            </button>
+
+            <button
+              onClick={() => (window.location.hash = '#/inventory')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.6rem 1.15rem',
+                backgroundColor: 'var(--primary-container)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: 'var(--radius-pill)',
+                fontSize: '0.85rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(215, 38, 61, 0.25)'
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                inventory_2
+              </span>
+              <span>Live Inventory (EU SKUs)</span>
             </button>
           </div>
         </div>

@@ -8,12 +8,28 @@ import { HowItWorksSection } from './components/HowItWorksSection';
 import { ContactSection } from './components/ContactSection';
 import { CartDrawer } from './components/CartDrawer';
 import { Footer } from './components/Footer';
+import Inventory from './components/Inventory';
 import { INVENTORY_ITEMS } from './data/inventory';
 
 export function App() {
+  const [currentView, setCurrentView] = useState(() => {
+    return window.location.hash.toLowerCase().includes('inventory') ? 'inventory' : 'home';
+  });
   const [selectedPlatform, setSelectedPlatform] = useState('all');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash.toLowerCase().includes('inventory')) {
+        setCurrentView('inventory');
+      } else {
+        setCurrentView('home');
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
 
   // Pre-staged demo allocations so the order drawer and matrix look populated immediately
   const [cart, setCart] = useState(() => [
@@ -87,30 +103,48 @@ export function App() {
       <Header
         cartCount={cart.reduce((sum, item) => sum + item.allocatedQty, 0)}
         onOpenCart={() => setIsCartOpen(true)}
+        currentView={currentView}
+        onNavigate={(view) => {
+          setCurrentView(view);
+          window.location.hash = view === 'inventory' ? '#/inventory' : '';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
 
-      {/* Main Content Sections */}
+      {/* Main Content Sections or Inventory View */}
       <main style={{ flex: 1, paddingTop: '80px' }}>
-        <HeroSection
-          onSelectPlatform={(platformId) => setSelectedPlatform(platformId)}
-        />
+        {currentView === 'inventory' ? (
+          <Inventory
+            onBack={() => {
+              setCurrentView('home');
+              window.location.hash = '';
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        ) : (
+          <>
+            <HeroSection
+              onSelectPlatform={(platformId) => setSelectedPlatform(platformId)}
+            />
 
-        <ProductRangeSection
-          onSelectCategory={(platformId) => setSelectedPlatform(platformId)}
-        />
+            <ProductRangeSection
+              onSelectCategory={(platformId) => setSelectedPlatform(platformId)}
+            />
 
-        <PricingMatrixSection
-          selectedPlatform={selectedPlatform}
-          setSelectedPlatform={setSelectedPlatform}
-          onStageProduct={handleStageProduct}
-          onShowToast={showToast}
-        />
+            <PricingMatrixSection
+              selectedPlatform={selectedPlatform}
+              setSelectedPlatform={setSelectedPlatform}
+              onStageProduct={handleStageProduct}
+              onShowToast={showToast}
+            />
 
-        <WhyTeejaySection />
+            <WhyTeejaySection />
 
-        <HowItWorksSection />
+            <HowItWorksSection />
 
-        <ContactSection onShowToast={showToast} />
+            <ContactSection onShowToast={showToast} />
+          </>
+        )}
       </main>
 
       {/* Footer */}

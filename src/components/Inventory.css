@@ -1,0 +1,124 @@
+/* Inventory Portal Styles - Teejay Games */
+
+.bg-bg-light {
+  background-color: #f8fafc;
+}
+
+.text-text-heading {
+  color: #0f172a;
+}
+
+.text-text-muted {
+  color: #64748b;
+}
+
+.text-primary-red {
+  color: #cf2e2e;
+}
+
+.bg-primary-red {
+  background-color: #cf2e2e;
+}
+
+.hover\:bg-primary-hover:hover {
+  background-color: #b32020;
+}
+
+.border-primary-red {
+  border-color: #cf2e2e;
+}
+
+.border-primary-light-border {
+  border-color: #fee2e2;
+}
+
+.border-border-light {
+  border-color: #e2e8f0;
+}
+
+.focus\:ring-primary-light:focus {
+  box-shadow: 0 0 0 3px rgba(207, 46, 46, 0.2);
+}
+
+.focus\:border-primary-red:focus {
+  border-color: #cf2e2e;
+}
+
+.shadow-card {
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-shake {
+  animation: shake 0.35s ease-in-out;
+}
+
+/* Ant Design Table adjustments for seamless integration */
+.inventory-portal .ant-table-wrapper {
+  background: #ffffff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  border: 1px solid #e2e8f0;
+}
+
+.inventory-portal .ant-table-thead > tr > th {
+  background-color: #f8fafc !important;
+  color: #334155 !important;
+  font-weight: 700 !important;
+  font-size: 0.825rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+  padding: 14px 16px !important;
+}
+
+.inventory-portal .ant-table-tbody > tr > td {
+  padding: 14px 16px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.inventory-portal .ant-table-tbody > tr:hover > td {
+  background-color: #f8fafc !important;
+}
+
+.inventory-portal .ant-pagination-item-active {
+  border-color: #ef4444 !important;
+}
+
+.inventory-portal .ant-pagination-item-active a {
+  color: #ef4444 !important;
+}

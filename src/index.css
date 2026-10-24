@@ -1,31 +1,34 @@
-/* Teejay Games Design System - Light B2B Wholesale Portal */
+/* Teejay Games Design System - Matching Teejaygames.co.uk Brand Theme */
 :root {
-  --primary: #B20028;
-  --primary-container: #D7263D;
-  --primary-hover: #E3384E;
-  --primary-fixed: #FFDAD9;
-  --primary-fixed-dim: #FFB3B2;
-  --primary-fixed-subtle: rgba(215, 38, 61, 0.08);
+  /* Brand Crimson Red & Dark Accents from Teejaygames.co.uk */
+  --primary: #cf2e2e;
+  --primary-container: #cf2e2e;
+  --primary-hover: #b32020;
+  --primary-fixed: #fee2e2;
+  --primary-fixed-dim: #fecaca;
+  --primary-fixed-subtle: rgba(207, 46, 46, 0.08);
 
-  --surface: #FAF9F7;
-  --surface-dim: #DBDAD8;
-  --surface-bright: #FAF9F7;
-  --surface-lowest: #FFFFFF;
-  --surface-low: #F4F3F1;
-  --surface-container: #EFEEEC;
-  --surface-container-high: #E9E8E6;
-  --surface-container-highest: #E3E2E0;
+  /* Clean White & Neutral Grey Surfaces (exact match to live Teejay site: #ffffff & #ebebeb) */
+  --surface: #ffffff;
+  --surface-dim: #ebebeb;
+  --surface-bright: #ffffff;
+  --surface-lowest: #ffffff;
+  --surface-low: #ebebeb;
+  --surface-container: #f5f5f5;
+  --surface-container-high: #ededed;
+  --surface-container-highest: #e0e0e0;
 
-  --on-surface: #1A1C1B;
-  --on-surface-variant: #5B403F;
-  --on-primary: #FFFFFF;
-  --on-primary-container: #FFF2F1;
-  --secondary: #5D5E63;
-  --secondary-container: #E2E2E8;
+  /* High-Contrast Bold Black and Neutral Dark Grey Text */
+  --on-surface: #000000;
+  --on-surface-variant: #333333;
+  --on-primary: #ffffff;
+  --on-primary-container: #ffffff;
+  --secondary: #555555;
+  --secondary-container: #ebebeb;
 
-  --outline: #906F6E;
-  --border-subtle: #ECE8E4;
-  --border-strong: #D5CFCA;
+  --outline: #777777;
+  --border-subtle: #ebebeb;
+  --border-strong: #cccccc;
 
   --stock-green: #1E824C;
   --stock-green-bg: #E8F5E9;
@@ -43,10 +46,10 @@
   --radius-xl: 24px;
   --radius-pill: 9999px;
 
-  --shadow-sm: 0 1px 3px rgba(20, 22, 26, 0.05);
-  --shadow-card: 0 2px 8px -2px rgba(20, 22, 26, 0.04), 0 1px 4px -1px rgba(20, 22, 26, 0.02);
-  --shadow-hover: 0 8px 24px -4px rgba(215, 38, 61, 0.09), 0 4px 12px -2px rgba(20, 22, 26, 0.04);
-  --shadow-drawer: 0 16px 36px -6px rgba(20, 22, 26, 0.12), 0 6px 16px -2px rgba(20, 22, 26, 0.05);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 2px 8px -2px rgba(0, 0, 0, 0.04), 0 1px 4px -1px rgba(0, 0, 0, 0.02);
+  --shadow-hover: 0 8px 24px -4px rgba(207, 46, 46, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+  --shadow-drawer: 0 16px 36px -6px rgba(0, 0, 0, 0.14), 0 6px 16px -2px rgba(0, 0, 0, 0.06);
 
   --max-width: 1240px;
   --max-width-wide: 1440px;
@@ -140,13 +143,13 @@ h1, h2, h3, h4, h5, h6 {
   cursor: pointer;
   text-decoration: none;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 1px 3px rgba(215, 38, 61, 0.25);
+  box-shadow: 0 1px 3px rgba(207, 46, 46, 0.25);
 }
 
 .btn-primary:hover {
-  background-color: var(--primary);
+  background-color: var(--primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(215, 38, 61, 0.35);
+  box-shadow: 0 4px 12px rgba(207, 46, 46, 0.35);
 }
 
 .btn-primary:active {
