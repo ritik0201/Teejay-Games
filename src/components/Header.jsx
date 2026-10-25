@@ -1,370 +1,415 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
-export const Header = ({ cartCount, onOpenCart, currentView = 'home', onNavigate }) => {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+export const Header = ({ cartCount = 0, onOpenCart, currentView = 'home', onNavigate }) => {
+  const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
+  const handleNavClick = (targetId, isView = false) => {
+    setIsOpen(false);
+    if (isView) {
+      if (onNavigate) onNavigate(targetId);
+      return;
+    }
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const scrollTo = (id) => {
-    setMobileMenuOpen(false);
-    if (currentView !== 'home' && onNavigate) {
-      onNavigate('home');
+    if (currentView !== 'home') {
+      if (onNavigate) onNavigate('home');
       setTimeout(() => {
-        const element = document.getElementById(id);
-        if (element) element.scrollIntoView({ behavior: 'smooth' });
+        const el = document.getElementById(targetId);
+        if (el) {
+          const offset = 80;
+          const bodyRect = document.body.getBoundingClientRect().top;
+          const elementRect = el.getBoundingClientRect().top;
+          const elementPosition = elementRect - bodyRect;
+          window.scrollTo({
+            top: elementPosition - offset,
+            behavior: 'smooth'
+          });
+        }
       }, 100);
       return;
     }
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+
+    const el = document.getElementById(targetId);
+    if (el) {
+      const offset = 80;
+      const bodyRect = document.body.getBoundingClientRect().top;
+      const elementRect = el.getBoundingClientRect().top;
+      const elementPosition = elementRect - bodyRect;
+      window.scrollTo({
+        top: elementPosition - offset,
+        behavior: 'smooth'
+      });
     }
   };
 
-  const navLinks = [
-    { label: 'Overview', id: 'hero', isRoute: false },
-    { label: 'Pricing Matrix', id: 'pricing-matrix', isRoute: false },
-    { label: 'Live Inventory', view: 'inventory', isRoute: true },
-    { label: 'Range', id: 'product-range', isRoute: false },
-    { label: 'Why Teejay', id: 'why-teejay', isRoute: false },
-    { label: 'Contact', id: 'trade-form', isRoute: false }
-  ];
-
   return (
-    <header
+    <nav
       style={{
-        position: 'fixed',
+        height: '70px',
+        backgroundColor: '#ffffff',
+        display: 'flex',
+        alignItems: 'center',
+        position: 'sticky',
         top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 100,
-        height: '74px',
-        backgroundColor: isScrolled ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.92)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: '1px solid var(--border-subtle)',
-        boxShadow: isScrolled ? '0 4px 16px rgba(20, 22, 26, 0.05)' : 'none',
-        transition: 'all 0.25s ease'
+        zIndex: 1000,
+        borderBottom: '1px solid var(--color-border-light)'
       }}
     >
       <div
         className="container-wide"
         style={{
-          height: '100%',
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '1.5rem'
+          alignItems: 'center',
+          width: '100%'
         }}
       >
-        {/* Brand Logo & B2B Badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
-          <div
-            onClick={() => scrollTo('hero')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.625rem',
-              cursor: 'pointer',
-              textDecoration: 'none'
-            }}
-          >
-            <div
-              style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '10px',
-                backgroundColor: 'var(--primary-container)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#ffffff',
-                boxShadow: '0 2px 8px rgba(215, 38, 61, 0.25)'
-              }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-                sports_esports
-              </span>
-            </div>
-            <div>
-              <span
-                style={{
-                  fontFamily: 'var(--font-headline)',
-                  fontSize: '1.25rem',
-                  fontWeight: '800',
-                  letterSpacing: '-0.02em',
-                  textTransform: 'uppercase',
-                  color: 'var(--on-surface)'
-                }}
-              >
-                TEEJAY <span style={{ color: 'var(--primary-container)' }}>GAMES</span>
-              </span>
-            </div>
-          </div>
-
-          <span
-            style={{
-              fontSize: '0.6875rem',
-              fontWeight: '700',
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              color: 'var(--primary-container)',
-              backgroundColor: 'rgba(215, 38, 61, 0.08)',
-              padding: '2px 7px',
-              borderRadius: '4px'
-            }}
-          >
-            B2B
-          </span>
-        </div>
-
-        {/* Center: Clean Desktop Navigation */}
-        <nav
+        {/* Brand Logo matching Basco layout */}
+        <div
+          onClick={() => handleNavClick('about')}
           style={{
-            display: 'none',
+            display: 'flex',
             alignItems: 'center',
-            gap: '0.4rem',
-            backgroundColor: 'var(--surface-low)',
-            padding: '4px 6px',
-            borderRadius: 'var(--radius-pill)',
-            border: '1px solid var(--border-subtle)'
+            gap: '0.65rem',
+            cursor: 'pointer'
           }}
-          className="desktop-menu"
         >
-          {navLinks.map((item) => {
-            const isActive = item.isRoute
-              ? currentView === item.view
-              : false;
-
-            return (
-              <button
-                key={item.label}
-                onClick={() => {
-                  if (item.isRoute) {
-                    if (onNavigate) onNavigate(item.view);
-                    else window.location.hash = `#/${item.view}`;
-                  } else {
-                    scrollTo(item.id);
-                  }
-                }}
-                style={{
-                  background: isActive ? '#ffffff' : 'transparent',
-                  border: 'none',
-                  borderRadius: 'var(--radius-pill)',
-                  padding: '0.4rem 0.85rem',
-                  fontSize: '0.85rem',
-                  fontWeight: isActive ? '700' : '600',
-                  color: isActive ? 'var(--primary-container)' : 'var(--secondary)',
-                  boxShadow: isActive ? '0 1px 4px rgba(20, 22, 26, 0.06)' : 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) e.currentTarget.style.color = 'var(--on-surface)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) e.currentTarget.style.color = 'var(--secondary)';
-                }}
-              >
-                {item.label === 'Live Inventory' && (
-                  <span
-                    style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      backgroundColor: 'var(--primary-container)',
-                      display: 'inline-block'
-                    }}
-                  />
-                )}
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Right CTA & Cart Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
-          {/* Staged Orders Cart Button */}
-          <button
-            onClick={onOpenCart}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              padding: '0.45rem 0.85rem',
-              borderRadius: 'var(--radius-pill)',
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--on-surface)',
-              fontSize: '0.8125rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              boxShadow: '0 1px 3px rgba(20, 22, 26, 0.04)'
-            }}
-            title="View Staged Allocations"
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--primary-container)' }}>
-              shopping_bag
-            </span>
-            <span className="cart-label">Staged</span>
-            {cartCount > 0 && (
-              <span
-                style={{
-                  backgroundColor: 'var(--primary-container)',
-                  color: '#fff',
-                  fontSize: '0.7rem',
-                  fontWeight: '700',
-                  padding: '1px 6px',
-                  borderRadius: '10px'
-                }}
-              >
-                {cartCount}
-              </span>
-            )}
-          </button>
-
-          {/* Trade Enquiry Button */}
-          <button
-            onClick={() => scrollTo('trade-form')}
-            className="desktop-cta"
-            style={{
-              display: 'none',
-              padding: '0.5rem 1.1rem',
-              backgroundColor: 'var(--primary-container)',
-              color: '#ffffff',
-              borderRadius: 'var(--radius-pill)',
-              border: 'none',
-              fontSize: '0.8125rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(215, 38, 61, 0.25)',
-              transition: 'all 0.15s ease',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            <span>Trade Enquiry</span>
-            <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>
-              arrow_forward
-            </span>
-          </button>
-
-          {/* Compact Trade Status Avatar */}
           <div
             style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              backgroundColor: 'var(--surface-container)',
-              color: 'var(--secondary)',
+              width: '36px',
+              height: '36px',
+              borderRadius: '9px',
+              backgroundColor: 'var(--color-primary)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              cursor: 'pointer'
+              color: '#ffffff',
+              boxShadow: '0 2px 8px rgba(207, 46, 46, 0.25)'
             }}
-            title="B2B Verified Account"
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>
-              person
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+              sports_esports
             </span>
           </div>
-
-          {/* Mobile Menu Toggle */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="mobile-btn"
+          <span
             style={{
-              display: 'none',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--on-surface)',
-              padding: '0.25rem'
+              fontFamily: 'var(--font-headline)',
+              fontSize: '1.25rem',
+              fontWeight: '800',
+              letterSpacing: '-0.02em',
+              color: 'var(--color-text-dark)'
             }}
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '26px' }}>
-              {mobileMenuOpen ? 'close' : 'menu'}
+            TEEJAY GAMES
+          </span>
+        </div>
+
+        {/* Desktop Menu matching Basco Distribution */}
+        <ul
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '2rem'
+          }}
+          className="desktop-nav-menu"
+        >
+          <li>
+            <a
+              href="#why-choose"
+              onClick={(e) => {
+                e.preventDefault();
+                handleNavClick('why-choose');
+              }}
+              style={{
+                color: 'var(--color-text-dark)',
+                fontWeight: 500,
+                fontSize: '0.95rem'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-primary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-dark)')}
+            >
+              Why Teejay
+            </a>
+          </li>
+          <li>
+            <a
+              href="#categories"
+              onClick={(e) => {
+                e.preventDefault();
+                handleNavClick('categories');
+              }}
+              style={{
+                color: 'var(--color-text-dark)',
+                fontWeight: 500,
+                fontSize: '0.95rem'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-primary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-dark)')}
+            >
+              Categories
+            </a>
+          </li>
+          <li>
+            <a
+              href="#pricing-matrix"
+              onClick={(e) => {
+                e.preventDefault();
+                handleNavClick('pricing-matrix');
+              }}
+              style={{
+                color: 'var(--color-text-dark)',
+                fontWeight: 500,
+                fontSize: '0.95rem'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-primary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-dark)')}
+            >
+              Pricing Matrix
+            </a>
+          </li>
+          <li>
+            <a
+              href="#wholesale"
+              onClick={(e) => {
+                e.preventDefault();
+                handleNavClick('wholesale');
+              }}
+              style={{
+                color: 'var(--color-text-dark)',
+                fontWeight: 500,
+                fontSize: '0.95rem'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-primary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-dark)')}
+            >
+              Wholesale
+            </a>
+          </li>
+          <li>
+            <span
+              onClick={() => handleNavClick('inventory', true)}
+              style={{
+                color: currentView === 'inventory' ? 'var(--color-primary)' : 'var(--color-text-dark)',
+                fontWeight: currentView === 'inventory' ? 700 : 500,
+                fontSize: '0.95rem',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-primary)')}
+              onMouseLeave={(e) => {
+                if (currentView !== 'inventory') e.currentTarget.style.color = 'var(--color-text-dark)';
+              }}
+            >
+              Live Inventory
             </span>
+          </li>
+        </ul>
+
+        {/* Right CTA Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+          {/* Staged Order Cart Button */}
+          {onOpenCart && (
+            <button
+              onClick={onOpenCart}
+              title="View Staged Allocations"
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                backgroundColor: 'var(--color-primary-light)',
+                color: 'var(--color-primary)',
+                border: '1px solid var(--color-primary-light-border)'
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+                shopping_cart
+              </span>
+              {cartCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-5px',
+                    right: '-5px',
+                    backgroundColor: 'var(--color-primary)',
+                    color: '#ffffff',
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    minWidth: '18px',
+                    height: '18px',
+                    borderRadius: '9px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 4px',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                  }}
+                >
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* New Accounts CTA */}
+          <a
+            href="#apply"
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavClick('apply');
+            }}
+            className="btn-solid desktop-cta"
+            style={{
+              padding: '0.6rem 1.25rem',
+              borderRadius: '12px',
+              fontSize: '0.9rem',
+              fontWeight: 600
+            }}
+          >
+            New Accounts
+          </a>
+
+          {/* Mobile Menu Hamburger */}
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="mobile-hamburger"
+            style={{
+              display: 'none',
+              flexDirection: 'column',
+              gap: '5px',
+              padding: '8px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+            aria-label="Toggle navigation menu"
+          >
+            <span
+              style={{
+                width: '24px',
+                height: '2px',
+                backgroundColor: 'var(--color-text-dark)',
+                transition: 'all 0.3s ease',
+                transform: isOpen ? 'rotate(45deg) translate(5px, 5px)' : 'none'
+              }}
+            />
+            <span
+              style={{
+                width: '24px',
+                height: '2px',
+                backgroundColor: 'var(--color-text-dark)',
+                transition: 'all 0.3s ease',
+                opacity: isOpen ? 0 : 1
+              }}
+            />
+            <span
+              style={{
+                width: '24px',
+                height: '2px',
+                backgroundColor: 'var(--color-text-dark)',
+                transition: 'all 0.3s ease',
+                transform: isOpen ? 'rotate(-45deg) translate(5px, -5px)' : 'none'
+              }}
+            />
           </button>
         </div>
       </div>
 
-      {/* Mobile Drawer */}
-      {mobileMenuOpen && (
-        <div
-          style={{
-            backgroundColor: 'var(--surface-lowest)',
-            borderBottom: '1px solid var(--border-subtle)',
-            padding: '1rem 1.5rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.5rem'
+      {/* Mobile Slide-Out Menu */}
+      <div
+        style={{
+          position: 'fixed',
+          top: '70px',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: '#ffffff',
+          zIndex: 999,
+          padding: '2rem',
+          display: isOpen ? 'flex' : 'none',
+          flexDirection: 'column',
+          gap: '1.5rem',
+          borderTop: '1px solid var(--color-border-light)',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.05)'
+        }}
+      >
+        <a
+          href="#why-choose"
+          onClick={(e) => {
+            e.preventDefault();
+            handleNavClick('why-choose');
           }}
+          style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-text-dark)' }}
         >
-          {navLinks.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => {
-                setMobileMenuOpen(false);
-                if (item.isRoute) {
-                  if (onNavigate) onNavigate(item.view);
-                  else window.location.hash = `#/${item.view}`;
-                } else {
-                  scrollTo(item.id);
-                }
-              }}
-              style={{
-                textAlign: 'left',
-                padding: '0.65rem 0.75rem',
-                borderRadius: '8px',
-                background: item.isRoute && currentView === item.view ? 'var(--surface-low)' : 'none',
-                border: 'none',
-                fontSize: '0.9375rem',
-                fontWeight: '600',
-                color: item.isRoute && currentView === item.view ? 'var(--primary-container)' : 'var(--on-surface)',
-                cursor: 'pointer'
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+          Why Teejay
+        </a>
+        <a
+          href="#categories"
+          onClick={(e) => {
+            e.preventDefault();
+            handleNavClick('categories');
+          }}
+          style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-text-dark)' }}
+        >
+          Categories
+        </a>
+        <a
+          href="#pricing-matrix"
+          onClick={(e) => {
+            e.preventDefault();
+            handleNavClick('pricing-matrix');
+          }}
+          style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-text-dark)' }}
+        >
+          Pricing Matrix
+        </a>
+        <a
+          href="#wholesale"
+          onClick={(e) => {
+            e.preventDefault();
+            handleNavClick('wholesale');
+          }}
+          style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-text-dark)' }}
+        >
+          Wholesale
+        </a>
+        <span
+          onClick={() => handleNavClick('inventory', true)}
+          style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-primary)', cursor: 'pointer' }}
+        >
+          Live Inventory
+        </span>
+        <div style={{ paddingTop: '1rem' }}>
+          <a
+            href="#apply"
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavClick('apply');
+            }}
+            className="btn-solid"
+            style={{ width: '100%', textAlign: 'center' }}
+          >
+            New Accounts
+          </a>
         </div>
-      )}
+      </div>
 
       <style>{`
-        @media (min-width: 900px) {
-          .desktop-menu {
-            display: flex !important;
-          }
-          .desktop-cta {
-            display: inline-flex !important;
-          }
-          .mobile-btn {
+        @media (max-width: 991px) {
+          .desktop-nav-menu {
             display: none !important;
           }
-        }
-        @media (max-width: 899px) {
-          .mobile-btn {
-            display: block !important;
+          .desktop-cta {
+            display: none !important;
           }
-          .cart-label {
-            display: none;
+          .mobile-hamburger {
+            display: flex !important;
           }
         }
       `}</style>
-    </header>
+    </nav>
   );
 };
+
+export default Header;

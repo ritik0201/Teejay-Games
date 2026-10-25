@@ -1,202 +1,159 @@
 import React from 'react';
 
 export const ProductRangeSection = ({ onSelectCategory }) => {
+  const scrollTo = (id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      const offset = 80;
+      const bodyRect = document.body.getBoundingClientRect().top;
+      const elementRect = el.getBoundingClientRect().top;
+      const elementPosition = elementRect - bodyRect;
+      window.scrollTo({
+        top: elementPosition - offset,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   const categories = [
     {
-      id: 'boxed',
-      filterKey: 'ps5',
-      icon: 'album',
-      title: 'Boxed Games',
-      badge: 'Physical Disc/Cartridge',
-      description: 'New releases, deep back-catalogue, and regional PEGI/ESRB stock across PS5, PS4, Xbox Series, and Nintendo Switch.',
-      skus: '480+ Active Titles',
-      dispatch: 'Same-day UK dispatch'
+      id: "ps5",
+      title: "Current-Gen Video Games",
+      icon: "🎮",
+      desc: "Wholesale boxed physical game software for PlayStation 5, Xbox Series X, and Nintendo Switch."
     },
     {
-      id: 'accessories',
-      filterKey: 'accessories',
-      icon: 'headset_mic',
-      title: 'First-Party Accessories',
-      badge: 'Official Hardware',
-      description: 'Official DualSense controllers, Xbox Wireless pads, Joy-Cons, headsets, charging docks, and OEM peripherals.',
-      skus: '240+ Hardware SKUs',
-      dispatch: 'Master Carton Lots'
+      id: "switch",
+      title: "Trading Card Games",
+      icon: "🃏",
+      desc: "Imported and domestic sealed TCG booster displays, elite trainer boxes, and collectible sets."
     },
     {
-      id: 'digital',
-      filterKey: 'digital',
-      icon: 'qr_code_2',
-      title: 'Digital Game Codes',
-      badge: 'Instant ESD',
-      description: 'Direct ESD codes, PlayStation Network and Xbox gift cards, Nintendo eShop vouchers, and Steam digital activations.',
-      skus: 'Instant API / Portal Delivery',
-      dispatch: 'Zero Freight Cost'
+      id: "xbox",
+      title: "Consoles & Accessories",
+      icon: "🕹️",
+      desc: "Official brand-new hardware, DualSense and wireless controllers, headsets, and gaming peripherals."
+    },
+    {
+      id: "all",
+      title: "Import & Global Sourcing",
+      icon: "🌍",
+      desc: "Direct cross-border sourcing support for high-demand releases, regional editions, and international trade lots."
     }
   ];
 
-  const scrollTo = (id) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
-  };
-
   return (
-    <section id="products" style={{ width: '100%', backgroundColor: 'var(--surface-low)', padding: '5.5rem 0' }}>
+    <section
+      id="categories"
+      style={{
+        paddingTop: '4.5rem',
+        paddingBottom: '5rem',
+        backgroundColor: '#ffffff'
+      }}
+    >
       <div className="container">
-        {/* Section Header */}
-        <div style={{ textAlign: 'center', maxWidth: '680px', margin: '0 auto 4rem auto' }}>
-          <span
-            style={{
-              color: 'var(--primary-container)',
-              fontSize: '0.8125rem',
-              fontWeight: '800',
-              textTransform: 'uppercase',
-              letterSpacing: '0.12em',
-              display: 'block',
-              marginBottom: '0.625rem'
-            }}
-          >
-            Inventory Categories
-          </span>
+        {/* Centered Header matching Basco Distribution */}
+        <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
           <h2
             style={{
-              fontFamily: 'var(--font-headline)',
-              fontSize: 'clamp(1.85rem, 3.5vw, 2.35rem)',
-              fontWeight: '700',
-              letterSpacing: '-0.025em',
-              color: 'var(--on-surface)',
-              marginBottom: '0.75rem'
+              fontSize: 'clamp(1.8rem, 3.5vw, 2.5rem)',
+              marginBottom: '0.85rem',
+              fontWeight: 800,
+              color: 'var(--color-text-heading)',
+              fontFamily: 'var(--font-headline)'
             }}
           >
-            Wholesale Product Range
+            Distribution Categories
           </h2>
-          <p style={{ color: 'var(--secondary)', fontSize: '1rem', lineHeight: 1.6 }}>
-            Guaranteed physical liquidity and digital codes directly from verified UK distribution networks.
+          <p
+            style={{
+              color: 'var(--color-text-muted)',
+              fontSize: '1.05rem',
+              maxWidth: '700px',
+              margin: '0 auto',
+              lineHeight: 1.6
+            }}
+          >
+            Built for customers looking for reliable supply, import access, and long-term wholesale support.
           </p>
         </div>
 
-        {/* 3 Horizontal Range Cards */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {categories.map((cat) => (
+        {/* 4-Card Grid matching Basco Distribution */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '1.5rem'
+          }}
+        >
+          {categories.map((cat, idx) => (
             <div
-              key={cat.id}
-              className="card-b2b"
+              key={idx}
+              className="card-shadow category-card"
+              onClick={() => {
+                if (onSelectCategory) onSelectCategory(cat.id);
+                scrollTo('pricing-matrix');
+              }}
               style={{
-                backgroundColor: 'var(--surface-lowest)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '2rem 2.25rem',
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '1.5rem',
-                border: '1px solid var(--border-subtle)',
-                transition: 'all 0.2s ease'
+                padding: '2.5rem 1.75rem',
+                textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                backgroundColor: '#ffffff'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1.5rem', maxWidth: '780px' }}>
-                {/* Category Icon Container */}
-                <div
-                  style={{
-                    width: '60px',
-                    height: '60px',
-                    borderRadius: '14px',
-                    backgroundColor: 'var(--primary-fixed)',
-                    color: 'var(--primary-container)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>
-                    {cat.icon}
-                  </span>
-                </div>
-
-                <div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                    <h3
-                      style={{
-                        fontFamily: 'var(--font-headline)',
-                        fontSize: '1.35rem',
-                        fontWeight: '700',
-                        color: 'var(--on-surface)'
-                      }}
-                    >
-                      {cat.title}
-                    </h3>
-                    <span
-                      style={{
-                        padding: '0.2rem 0.65rem',
-                        borderRadius: 'var(--radius-pill)',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        backgroundColor: 'var(--surface-container)',
-                        color: 'var(--secondary)'
-                      }}
-                    >
-                      {cat.badge}
-                    </span>
-                    <span
-                      style={{
-                        padding: '0.2rem 0.65rem',
-                        borderRadius: 'var(--radius-pill)',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        backgroundColor: 'var(--surface-low)',
-                        color: 'var(--primary-container)'
-                      }}
-                    >
-                      {cat.skus}
-                    </span>
-                  </div>
-                  <p style={{ color: 'var(--secondary)', fontSize: '0.9375rem', lineHeight: 1.55 }}>
-                    {cat.description}
-                  </p>
-                </div>
+              <div
+                style={{
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '14px',
+                  backgroundColor: 'var(--color-primary-light)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 1.5rem auto',
+                  fontSize: '2rem'
+                }}
+              >
+                {cat.icon}
               </div>
 
-              {/* Action Links */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexShrink: 0 }}>
-                <button
-                  onClick={() => {
-                    if (onSelectCategory) onSelectCategory(cat.filterKey);
-                    scrollTo('pricing-matrix');
-                  }}
-                  className="btn-secondary btn-sm"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>list_alt</span>
-                  <span>View SKUs</span>
-                </button>
+              <h3
+                style={{
+                  fontSize: '1.15rem',
+                  fontWeight: 700,
+                  marginBottom: '0.85rem',
+                  color: 'var(--color-text-heading)',
+                  fontFamily: 'var(--font-headline)'
+                }}
+              >
+                {cat.title}
+              </h3>
 
-                <button
-                  onClick={() => scrollTo('trade-form')}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    fontSize: '0.9375rem',
-                    fontWeight: '700',
-                    color: 'var(--primary-container)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '0.5rem 0.75rem',
-                    borderRadius: 'var(--radius-pill)',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--primary)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--primary-container)')}
-                >
-                  <span>Enquire</span>
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
-                </button>
-              </div>
+              <p
+                style={{
+                  fontSize: '0.875rem',
+                  color: 'var(--color-text-muted)',
+                  lineHeight: 1.5,
+                  margin: 0
+                }}
+              >
+                {cat.desc}
+              </p>
             </div>
           ))}
         </div>
       </div>
+
+      <style>{`
+        .category-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 12px 28px -4px rgba(207, 46, 46, 0.15) !important;
+          border-color: var(--color-primary-light-border) !important;
+        }
+      `}</style>
     </section>
   );
 };
+
+export default ProductRangeSection;
