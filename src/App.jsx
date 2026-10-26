@@ -121,18 +121,27 @@ export function App() {
           />
         ) : (
           <>
-            <HeroSection />
+            <HeroSection
+              onNavigate={(view) => {
+                setCurrentView(view);
+                window.location.hash = view === 'inventory' ? '#/inventory' : '';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
 
             <ProductRangeSection
               onSelectCategory={(platformId) => setSelectedPlatform(platformId)}
             />
 
+            {/* Live Stock Manifest & Tiered Rates component commented out from homepage */}
+            {/*
             <PricingMatrixSection
               selectedPlatform={selectedPlatform}
               setSelectedPlatform={setSelectedPlatform}
               onStageProduct={handleStageProduct}
               onShowToast={showToast}
             />
+            */}
 
             <WholesalePartnerSection onShowToast={showToast} />
           </>
@@ -140,7 +149,13 @@ export function App() {
       </main>
 
       {/* Basco Centered Footer */}
-      <Footer />
+      <Footer
+        onNavigate={(view) => {
+          setCurrentView(view);
+          window.location.hash = view === 'inventory' ? '#/inventory' : '';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
 
       {/* Staged Order Cart Drawer */}
       <CartDrawer

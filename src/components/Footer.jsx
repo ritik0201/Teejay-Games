@@ -2,7 +2,7 @@ import React from 'react';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-export const Footer = () => {
+export const Footer = ({ onNavigate }) => {
   return (
     <footer
       style={{

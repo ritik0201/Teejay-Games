@@ -65,7 +65,13 @@ export const Header = ({ cartCount = 0, onOpenCart, currentView = 'home', onNavi
       >
         {/* Brand Logo matching Basco layout */}
         <div
-          onClick={() => handleNavClick('about')}
+          onClick={() => {
+            if (currentView !== 'home') {
+              handleNavClick('home', true);
+            } else {
+              handleNavClick('about');
+            }
+          }}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -185,21 +191,52 @@ export const Header = ({ cartCount = 0, onOpenCart, currentView = 'home', onNavi
             </a>
           </li>
           <li>
-            <span
+            <button
               onClick={() => handleNavClick('inventory', true)}
               style={{
-                color: currentView === 'inventory' ? 'var(--color-primary)' : 'var(--color-text-dark)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                backgroundColor: currentView === 'inventory' ? 'var(--color-primary-light, #fef2f2)' : 'transparent',
+                color: currentView === 'inventory' ? 'var(--color-primary, #cf2e2e)' : 'var(--color-text-dark)',
                 fontWeight: currentView === 'inventory' ? 700 : 500,
                 fontSize: '0.95rem',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                border: currentView === 'inventory' ? '1px solid var(--color-primary-light-border, #fee2e2)' : '1px solid transparent',
+                transition: 'all 0.2s ease'
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-primary)')}
+              onMouseEnter={(e) => {
+                if (currentView !== 'inventory') {
+                  e.currentTarget.style.color = 'var(--color-primary)';
+                  e.currentTarget.style.backgroundColor = 'var(--color-primary-light, #fef2f2)';
+                }
+              }}
               onMouseLeave={(e) => {
-                if (currentView !== 'inventory') e.currentTarget.style.color = 'var(--color-text-dark)';
+                if (currentView !== 'inventory') {
+                  e.currentTarget.style.color = 'var(--color-text-dark)';
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
               }}
             >
-              Live Inventory
-            </span>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                inventory_2
+              </span>
+              <span>Live Inventory</span>
+              <span
+                style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 800,
+                  backgroundColor: 'var(--color-primary, #cf2e2e)',
+                  color: '#ffffff',
+                  padding: '1px 6px',
+                  borderRadius: '999px'
+                }}
+              >
+                EU
+              </span>
+            </button>
           </li>
         </ul>
 
@@ -374,12 +411,41 @@ export const Header = ({ cartCount = 0, onOpenCart, currentView = 'home', onNavi
         >
           Wholesale
         </a>
-        <span
+        <button
           onClick={() => handleNavClick('inventory', true)}
-          style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-primary)', cursor: 'pointer' }}
+          style={{
+            fontSize: '1.05rem',
+            fontWeight: 700,
+            color: currentView === 'inventory' ? 'var(--color-primary)' : 'var(--color-text-dark)',
+            backgroundColor: currentView === 'inventory' ? 'var(--color-primary-light, #fef2f2)' : 'transparent',
+            padding: '10px 14px',
+            borderRadius: '10px',
+            border: currentView === 'inventory' ? '1px solid var(--color-primary-light-border)' : '1px solid var(--color-border-light)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            textAlign: 'left'
+          }}
         >
-          Live Inventory
-        </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)' }}>inventory_2</span>
+            <span>Live Inventory</span>
+          </span>
+          <span
+            style={{
+              fontSize: '0.7rem',
+              fontWeight: 800,
+              backgroundColor: 'var(--color-primary)',
+              color: '#ffffff',
+              padding: '2px 8px',
+              borderRadius: '999px'
+            }}
+          >
+            EU SKUs
+          </span>
+        </button>
         <div style={{ paddingTop: '1rem' }}>
           <a
             href="#apply"

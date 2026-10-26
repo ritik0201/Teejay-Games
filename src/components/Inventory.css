@@ -116,9 +116,9 @@
 }
 
 .inventory-portal .ant-pagination-item-active {
-  border-color: #ef4444 !important;
+  border-color: var(--color-primary, #cf2e2e) !important;
 }
 
 .inventory-portal .ant-pagination-item-active a {
-  color: #ef4444 !important;
+  color: var(--color-primary, #cf2e2e) !important;
 }
