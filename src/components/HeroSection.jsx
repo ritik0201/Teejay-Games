@@ -71,40 +71,6 @@ export const HeroSection = ({ onNavigate }) => {
                 ESTABLISHED SINCE 2014
               </span>
 
-              {/* Clickable Live Inventory Pill */}
-              <button
-                onClick={handleOpenInventory}
-                title="Open Live EU Inventory"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '0.35rem 0.95rem',
-                  borderRadius: '9999px',
-                  backgroundColor: '#ffffff',
-                  border: '1px solid var(--color-primary-light-border)',
-                  color: 'var(--color-primary)',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  letterSpacing: '0.8px',
-                  cursor: 'pointer',
-                  boxShadow: 'var(--shadow-sm)',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--color-primary)';
-                  e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--color-primary-light-border)';
-                  e.currentTarget.style.backgroundColor = '#ffffff';
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>
-                  inventory_2
-                </span>
-                <span>LIVE EU INVENTORY PORTAL →</span>
-              </button>
             </div>
 
             <p
@@ -146,9 +112,13 @@ export const HeroSection = ({ onNavigate }) => {
             </p>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-              {/* Primary CTA: Live EU Inventory */}
-              <button
-                onClick={handleOpenInventory}
+
+              <a
+                href="#apply"
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollTo('apply');
+                }}
                 className="btn-solid"
                 style={{
                   padding: '0.85rem 1.75rem',
@@ -159,21 +129,6 @@ export const HeroSection = ({ onNavigate }) => {
                   cursor: 'pointer',
                   boxShadow: '0 4px 14px rgba(207, 46, 46, 0.3)'
                 }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-                  inventory_2
-                </span>
-                <span>Live EU Inventory</span>
-              </button>
-
-              <a
-                href="#apply"
-                onClick={(e) => {
-                  e.preventDefault();
-                  scrollTo('apply');
-                }}
-                className="btn-outline"
-                style={{ padding: '0.85rem 1.75rem', fontSize: '1rem' }}
               >
                 Apply for Wholesale Account
               </a>

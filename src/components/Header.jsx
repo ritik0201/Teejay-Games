@@ -223,19 +223,8 @@ export const Header = ({ cartCount = 0, onOpenCart, currentView = 'home', onNavi
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
                 inventory_2
               </span>
-              <span>Live Inventory</span>
-              <span
-                style={{
-                  fontSize: '0.65rem',
-                  fontWeight: 800,
-                  backgroundColor: 'var(--color-primary, #cf2e2e)',
-                  color: '#ffffff',
-                  padding: '1px 6px',
-                  borderRadius: '999px'
-                }}
-              >
-                EU
-              </span>
+              <span>Inventory</span>
+              
             </button>
           </li>
         </ul>
@@ -431,20 +420,9 @@ export const Header = ({ cartCount = 0, onOpenCart, currentView = 'home', onNavi
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)' }}>inventory_2</span>
-            <span>Live Inventory</span>
+            <span>Inventory</span>
           </span>
-          <span
-            style={{
-              fontSize: '0.7rem',
-              fontWeight: 800,
-              backgroundColor: 'var(--color-primary)',
-              color: '#ffffff',
-              padding: '2px 8px',
-              borderRadius: '999px'
-            }}
-          >
-            EU SKUs
-          </span>
+         
         </button>
         <div style={{ paddingTop: '1rem' }}>
           <a
