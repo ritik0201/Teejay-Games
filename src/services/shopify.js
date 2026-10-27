@@ -1,279 +1,172 @@
-import * as XLSX from 'xlsx';
+// =========================================================
+// src/services/shopify.js
+// =========================================================
+//
+// Connects to Shopify Storefront API, fetches products,
+// handles pagination, and converts data for Inventory.jsx
+// =========================================================
 
-export const GOOGLE_SHEETS_CSV_URL = 'https://docs.google.com/spreadsheets/d/1KQHoC--H1BMfPA-SfWg6DNYgZ0xXi_4goBVO22Nfz2U/export?format=csv';
+const STORE_DOMAIN = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN;
+const STOREFRONT_TOKEN = import.meta.env.VITE_SHOPIFY_STOREFRONT_TOKEN;
 
-let memoryCache = null;
+const SHOPIFY_ENDPOINT = `https://${STORE_DOMAIN}/api/2024-10/graphql.json`;
 
-export async function fetchProducts(forceRefresh = false) {
-  if (memoryCache && !forceRefresh) {
-    return memoryCache;
-  }
+// Lower these if Shopify ever throttles or rejects the query
+const PRODUCTS_PER_PAGE = 100;
+const VARIANTS_PER_PRODUCT = 100;
 
-  // 1. Fetch from live Google Sheets document
-  try {
-    const response = await fetch(GOOGLE_SHEETS_CSV_URL);
-    if (!response.ok) {
-      throw new Error(`Google Sheets responded with HTTP status ${response.status}`);
-    }
-    const csvText = await response.text();
-    const workbook = XLSX.read(csvText, { type: 'string' });
-    const sheetName = workbook.SheetNames[0];
-    const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+// True only when "EU" is its own segment of the SKU, e.g. "ABC_EU", "ABC-EU", "EU-123".
+// "XB360ARCADEUNPLUG-001", "PSVCRIMGIRLSINVITE-EUR" and "NSWDUN_OF_NAHLBEUK" do NOT match.
+export const isEuSku = (sku) =>
+  /(^|[^A-Za-z0-9])EU($|[^A-Za-z0-9])/i.test(String(sku || ""));
 
-    if (rawRows && rawRows.length > 0) {
-      // Filter out supplementary image rows where Variant SKU is empty
-      const productRows = rawRows.filter((r) => {
-        const sku = String(r['Variant SKU'] || '').trim();
-        const title = String(r['Title'] || '').trim();
-        return sku.length > 0 && title.length > 0;
-      });
-
-      const parsedProducts = productRows.map((r, idx) => {
-        const sku = String(r['Variant SKU'] || '').trim();
-        const barcode = String(
-          r['Variant Barcode'] ||
-          r['Barcode (product.metafields.app--361353084929--custom.barcode)'] ||
-          ''
-        ).trim();
-        const title = String(r['Title'] || '').trim();
-        const vendor = String(
-          r['Vendor'] ||
-          r['Brand (product.metafields.custom.brand)'] ||
-          'Teejay Games Direct'
-        ).trim();
-        const platform = String(
-          r['Video Game Platform (product.metafields.custom.video_game_platform)'] ||
-          r['Type'] ||
-          'Gaming'
-        ).trim();
-        const rating = String(
-          r['Age Rating (product.metafields.custom.age_rating)'] ||
-          r['ESRB Rating (product.metafields.custom.esrb_rating)'] ||
-          r['PEGI rating (product.metafields.shopify.pegi-rating)'] ||
-          'PEGI EU'
-        ).trim();
-        const quantity = Math.max(0, parseInt(r['Variant Inventory Qty'], 10) || 0);
-        const price = parseFloat(r['Variant Price']) || 0;
-        const image = String(r['Image Src'] || '').trim();
-        const status = String(r['Status'] || '').trim().toLowerCase();
-        const version = String(r['Version (product.metafields.custom.version)'] || '').trim();
-
-        return {
-          id: `sheet-${idx}-${sku || barcode}`,
-          barcode: barcode || `NO-BARCODE-${idx + 1}`,
-          sku: sku,
-          title: title || 'Untitled Product',
-          vendor: vendor,
-          platform: platform,
-          rating: rating.includes('★') ? rating : `${rating} ★`,
-          quantity,
-          price,
-          currency: 'USD',
-          image: image || null,
-          imageAlt: title || 'Product',
-          listOnWebsite: status !== 'draft',
-          version
-        };
-      });
-
-      memoryCache = parsedProducts;
-      return parsedProducts;
-    }
-  } catch (err) {
-    console.warn('Google Sheets live fetch error, checking fallbacks:', err);
-  }
-
-  // 2. Check decryptedUrl session storage fallback if any
-  const decryptedUrl = typeof window !== 'undefined' ? sessionStorage.getItem('decrypted_inventory_url') : null;
-
-  if (decryptedUrl && decryptedUrl.startsWith('http')) {
-    try {
-      const response = await fetch(decryptedUrl);
-      if (response.ok) {
-        const data = await response.json();
-        const rawProducts = Array.isArray(data)
-          ? data
-          : data.products || data.items || data.inventory || [];
-
-        if (rawProducts.length > 0) {
-          const list = rawProducts.map((p, idx) => ({
-            barcode: p.barcode || p.ean || p.upc || `50309${2000000 + idx}`,
-            title: p.title || p.name || `Teejay Wholesale Item #${idx + 1}`,
-            vendor: p.vendor || p.brand || 'Teejay Games Direct',
-            platform: p.platform || p.product_type || 'PlayStation 5',
-            rating: p.rating || '4.9 ★',
-            quantity: Number(p.quantity ?? p.inventory_quantity ?? p.stockUnits ?? 50),
-            price: Number(p.price ?? p.srp ?? p.rrp ?? 49.99),
-            currency: p.currency || 'USD',
-            image: p.image?.src || p.image || (p.images && p.images[0]?.src) || null,
-            imageAlt: p.title || 'Product',
-            listOnWebsite: p.listOnWebsite !== false,
-            sku: p.sku || 'EU'
-          }));
-          memoryCache = list;
-          return list;
+const PRODUCTS_QUERY = `
+  query GetProducts($first: Int!, $after: String) {
+    products(first: $first, after: $after) {
+      edges {
+        cursor
+        node {
+          id
+          title
+          description
+          vendor
+          variants(first: ${VARIANTS_PER_PRODUCT}) {
+            nodes {
+              id
+              sku
+              barcode
+              title
+              quantityAvailable
+            }
+          }
+          featuredImage {
+            url
+            altText
+          }
+          priceRange {
+            minVariantPrice {
+              amount
+              currencyCode
+            }
+          }
+          listOnWebsiteMeta: metafield(namespace: "custom", key: "list_on_website") {
+            value
+          }
+          platformMeta: metafield(namespace: "custom", key: "video_game_platform") {
+            value
+          }
+          ageRatingMeta: metafield(namespace: "custom", key: "age_rating") {
+            value
+          }
         }
       }
-    } catch (err) {
-      console.warn('Decrypted URL fetch skipped:', err);
+      pageInfo {
+        hasNextPage
+      }
+    }
+  }
+`;
+
+// Fetch a single page of products
+async function fetchProductsPage(after = null) {
+  const response = await fetch(SHOPIFY_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Storefront-Access-Token": STOREFRONT_TOKEN,
+    },
+    body: JSON.stringify({
+      query: PRODUCTS_QUERY,
+      variables: { first: PRODUCTS_PER_PAGE, after },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Shopify API error: ${response.status}`);
+  }
+
+  const json = await response.json();
+
+  if (json.errors) {
+    throw new Error(json.errors.map((error) => error.message).join(", "));
+  }
+
+  if (!json.data || !json.data.products) {
+    throw new Error("Shopify returned invalid product data.");
+  }
+
+  return json.data.products;
+}
+
+// Fetch all products, handling pagination
+export async function fetchProducts() {
+  if (!STORE_DOMAIN) {
+    throw new Error(
+      "Shopify store domain is missing. Check VITE_SHOPIFY_STORE_DOMAIN.",
+    );
+  }
+  if (!STOREFRONT_TOKEN) {
+    throw new Error(
+      "Shopify Storefront token is missing. Check VITE_SHOPIFY_STOREFRONT_TOKEN.",
+    );
+  }
+
+  let allProducts = [];
+  let cursor = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const page = await fetchProductsPage(cursor);
+    allProducts = allProducts.concat(page.edges);
+    hasNextPage = page.pageInfo.hasNextPage;
+
+    if (page.edges.length > 0) {
+      cursor = page.edges[page.edges.length - 1].cursor;
+    } else {
+      cursor = null;
+      hasNextPage = false;
     }
   }
 
-  // 3. Authenticated live wholesale catalog with EU SKUs and test region variations
-  return [
-    {
-      barcode: '5030932124890',
-      sku: 'EU',
-      title: 'PlayStation 5 Slim Console (Disc Edition 1TB) - EU PAL',
-      vendor: 'Sony Interactive Entertainment',
-      platform: 'PlayStation 5',
-      rating: '4.9 ★',
-      quantity: 420,
-      price: 479.99,
-      currency: 'USD',
-      image: 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=150&auto=format&fit=crop&q=80',
-      imageAlt: 'PS5 Slim Disc',
-      listOnWebsite: true
-    },
-    {
-      barcode: '0711719582918',
-      sku: 'EU',
-      title: 'Sony DualSense Wireless Controller - White (EU Packaging)',
-      vendor: 'Sony Interactive Entertainment',
-      platform: 'PlayStation 5',
-      rating: '4.8 ★',
-      quantity: 850,
-      price: 64.99,
-      currency: 'USD',
-      image: 'https://images.unsplash.com/photo-1592840496694-26d035b52b48?w=150&auto=format&fit=crop&q=80',
-      imageAlt: 'DualSense White',
-      listOnWebsite: true
-    },
-    {
-      barcode: '5030917294821',
-      sku: 'TJ-PS5-ASTRO-EU',
-      title: 'Astro Bot (PS5 Standard Edition Boxed) - PEGI EU',
-      vendor: 'Sony Interactive Entertainment',
-      platform: 'PlayStation 5',
-      rating: '5.0 ★',
-      quantity: 360,
-      price: 59.99,
-      currency: 'USD',
-      image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=150&auto=format&fit=crop&q=80',
-      imageAlt: 'Astro Bot',
-      listOnWebsite: true
-    },
-    {
-      barcode: '0889842611564',
-      sku: 'EU',
-      title: 'Xbox Series X 1TB Console - EU Specification',
-      vendor: 'Microsoft',
-      platform: 'Xbox Series X',
-      rating: '4.8 ★',
-      quantity: 180,
-      price: 479.99,
-      currency: 'USD',
-      image: 'https://images.unsplash.com/photo-1621259182978-fbf93132d53d?w=150&auto=format&fit=crop&q=80',
-      imageAlt: 'Xbox Series X',
-      listOnWebsite: true
-    },
-    {
-      barcode: '0889842611571',
-      sku: 'TJ-XB-PAD-EU',
-      title: 'Xbox Wireless Controller - Carbon Black (EU Retail)',
-      vendor: 'Microsoft',
-      platform: 'Xbox Series X',
-      rating: '4.7 ★',
-      quantity: 520,
-      price: 54.99,
-      currency: 'USD',
-      image: 'https://images.unsplash.com/photo-1600080972464-8e5f35f63d08?w=150&auto=format&fit=crop&q=80',
-      imageAlt: 'Xbox Wireless Controller',
-      listOnWebsite: true
-    },
-    {
-      barcode: '0045496479812',
-      sku: 'EU',
-      title: 'Nintendo Switch OLED Model - White (EU Spec)',
-      vendor: 'Nintendo',
-      platform: 'Nintendo Switch',
-      rating: '4.9 ★',
-      quantity: 310,
-      price: 309.99,
-      currency: 'USD',
-      image: 'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=150&auto=format&fit=crop&q=80',
-      imageAlt: 'Nintendo Switch OLED',
-      listOnWebsite: true
-    },
-    {
-      barcode: '0045496479904',
-      sku: 'TJ-NSW-ZELDA-EU',
-      title: 'The Legend of Zelda: Echoes of Wisdom (Boxed EU)',
-      vendor: 'Nintendo',
-      platform: 'Nintendo Switch',
-      rating: '4.9 ★',
-      quantity: 440,
-      price: 49.99,
-      currency: 'USD',
-      image: 'https://images.unsplash.com/photo-1612287233215-d91244e8bc19?w=150&auto=format&fit=crop&q=80',
-      imageAlt: 'Zelda Echoes of Wisdom',
-      listOnWebsite: true
-    },
-    {
-      barcode: '5030932124906',
-      sku: 'EU',
-      title: 'EA SPORTS FC 25 (PS5 Standard Edition Physical) - EU Multi-5',
-      vendor: 'Electronic Arts',
-      platform: 'PlayStation 5',
-      rating: '4.6 ★',
-      quantity: 680,
-      price: 69.99,
-      currency: 'USD',
-      image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=150&auto=format&fit=crop&q=80',
-      imageAlt: 'EA FC 25',
-      listOnWebsite: true
-    },
-    {
-      barcode: '5030917294838',
-      sku: 'EU',
-      title: 'Call of Duty: Black Ops 6 (Xbox Series X Boxed EU)',
-      vendor: 'Activision Blizzard',
-      platform: 'Xbox Series X',
-      rating: '4.7 ★',
-      quantity: 490,
-      price: 69.99,
-      currency: 'USD',
-      image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=150&auto=format&fit=crop&q=80',
-      imageAlt: 'COD Black Ops 6',
-      listOnWebsite: true
-    },
-    {
-      barcode: '0711719576825',
-      sku: 'TJ-ACC-PULSE-EU',
-      title: 'Sony Pulse Elite Wireless Headset - EU PAL',
-      vendor: 'Sony Interactive Entertainment',
-      platform: 'PlayStation 5',
-      rating: '4.8 ★',
-      quantity: 165,
-      price: 129.99,
-      currency: 'USD',
-      image: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=150&auto=format&fit=crop&q=80',
-      imageAlt: 'Pulse Elite Headset',
-      listOnWebsite: true
-    },
-    {
-      barcode: '4719072981023',
-      sku: 'EU',
-      title: 'GeForce RTX 4070 Super 12GB Dual Fan OC (EU Packaging)',
-      vendor: 'PC Hardware Master',
-      platform: 'PC Gaming',
-      rating: '4.9 ★',
-      quantity: 65,
-      price: 579.99,
-      currency: 'USD',
-      image: 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=150&auto=format&fit=crop&q=80',
-      imageAlt: 'RTX 4070 Super',
-      listOnWebsite: true
-    }
-  ];
+  return allProducts.map(({ node }) => {
+    const variants = node?.variants?.nodes || [];
+
+    const barcode = variants.find((variant) => variant?.barcode)?.barcode || "";
+
+    // If a product has several variants, prefer the one with an EU SKU
+    const skus = variants.map((v) => v?.sku).filter(Boolean);
+    const sku = skus.find(isEuSku) || skus[0] || "";
+
+    const totalQuantity = variants.reduce(
+      (sum, variant) => sum + (variant?.quantityAvailable || 0),
+      0,
+    );
+
+    const price = Number(node?.priceRange?.minVariantPrice?.amount) || 0;
+    const currency = node?.priceRange?.minVariantPrice?.currencyCode || "USD";
+
+    const listOnWebsiteRaw = String(node?.listOnWebsiteMeta?.value || "")
+      .trim()
+      .toLowerCase();
+    const listOnWebsite =
+      listOnWebsiteRaw === "true" || listOnWebsiteRaw === "yes";
+
+    return {
+      id: node?.id || "",
+      title: node?.title || "",
+      description: node?.description || "",
+      vendor: node?.vendor || "",
+      barcode,
+      sku,
+      image: node?.featuredImage?.url || null,
+      imageAlt: node?.featuredImage?.altText || node?.title || "Product",
+      price,
+      currency,
+      brand: node?.vendor || "",
+      quantity: totalQuantity,
+      listOnWebsite,
+      platform: node?.platformMeta?.value || "",
+      rating: node?.ageRatingMeta?.value || "",
+    };
+  });
 }

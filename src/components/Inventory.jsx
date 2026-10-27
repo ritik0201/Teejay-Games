@@ -1,71 +1,151 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { ConfigProvider, Table } from "antd";
-import { fetchProducts } from "../services/shopify";
-import * as XLSX from 'xlsx';
-import './Inventory.css';
+import { decryptText } from "../utils/crypto";
+import { fetchProducts, isEuSku } from "../services/shopify";
+import * as XLSX from "xlsx";
+import "./Inventory.css";
 
-const Inventory = ({ onBack }) => {
+// How often the table silently re-checks Shopify for changes
+const REFRESH_INTERVAL_MS = 60 * 1000;
+
+const Inventory = () => {
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [retryCount, setRetryCount] = useState(0);
+  // Column filters currently applied in the table (vendor / platform / rating)
+  const [columnFilters, setColumnFilters] = useState({});
+  const lastSignature = useRef(null);
+
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [decrypting, setDecrypting] = useState(false);
+  const [decryptError, setDecryptError] = useState(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  const ENCRYPTED_URL = import.meta.env.VITE_ENCRYPTED_INVENTORY_URL;
+
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
+    const checkSession = async () => {
+      const savedPassword = sessionStorage.getItem("inventory_password");
+      if (savedPassword && ENCRYPTED_URL) {
+        try {
+          const decrypted = await decryptText(ENCRYPTED_URL, savedPassword);
+          if (decrypted.startsWith("http")) {
+            setIsAuthenticated(true);
+          } else {
+            sessionStorage.removeItem("inventory_password");
+          }
+        } catch (e) {
+          sessionStorage.removeItem("inventory_password");
+        }
+      }
+      setCheckingSession(false);
+    };
+    checkSession();
+  }, [ENCRYPTED_URL]);
 
-    const fetchData = async () => {
+  const handleUnlock = async (e) => {
+    if (e) e.preventDefault();
+    if (!passwordInput.trim()) return;
+
+    setDecrypting(true);
+    setDecryptError(null);
+
+    try {
+      if (!ENCRYPTED_URL) {
+        throw new Error("No encrypted inventory URL configured.");
+      }
+      const decrypted = await decryptText(ENCRYPTED_URL, passwordInput);
+      if (decrypted.startsWith("http")) {
+        sessionStorage.setItem("inventory_password", passwordInput);
+        setIsAuthenticated(true);
+      } else {
+        throw new Error("Invalid password");
+      }
+    } catch (err) {
+      setDecryptError("Incorrect password. Access denied.");
+    } finally {
+      setDecrypting(false);
+    }
+  };
+
+  // Load from Shopify, then keep refreshing in the background
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let cancelled = false;
+    let inFlight = false;
+
+    const load = async (silent) => {
+      if (inFlight) return;
+      inFlight = true;
       try {
-        setLoading(true);
-        setError(null);
-        console.log("Fetching Teejay Games inventory products from Google Sheets...");
+        if (!silent) {
+          setLoading(true);
+          setError(null);
+        }
         const products = await fetchProducts();
         if (cancelled) return;
-        setInventory(products || []);
+
+        // Only update state when something actually changed,
+        // so the table doesn't re-render on every poll
+        const signature = JSON.stringify(products);
+        if (signature !== lastSignature.current) {
+          lastSignature.current = signature;
+          setInventory(products);
+        }
+        setError(null);
       } catch (err) {
         if (cancelled) return;
         console.error("Error fetching products:", err);
-        setError(err?.message || "Failed to load inventory from Google Sheets.");
-        setInventory([]);
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
+        // Background refresh failures keep the current data on screen
+        if (!silent) {
+          setError(err?.message || "Failed to load inventory from Shopify.");
+          setInventory([]);
+          lastSignature.current = null;
         }
+      } finally {
+        inFlight = false;
+        if (!cancelled && !silent) setLoading(false);
       }
     };
 
-    fetchData();
+    load(false);
+
+    const intervalId = setInterval(() => load(true), REFRESH_INTERVAL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load(true);
+    };
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       cancelled = true;
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [retryCount]);
+  }, [isAuthenticated, retryCount]);
 
-  // EU SKU Filter: Only show products whose SKU starts with 'eu', ends with '_eu'/'-eu', or is an EU SKU
-  const isSkuEu = (sku) => {
-    const s = String(sku || "").trim().toLowerCase();
-    if (!s) return false;
-    return (
-      s.startsWith("eu") ||
-      s.endsWith("_eu") ||
-      s.endsWith("-eu") ||
-      s === "eu" ||
-      s.split(/[-_\s/]+/).includes("eu")
-    );
-  };
-
+  // Only listed, in-stock products whose SKU has "EU" as its own segment
   const visibleInventory = useMemo(() => {
-    return inventory.filter((item) => {
-      const isListed = item?.listOnWebsite !== false;
-      return isListed && isSkuEu(item?.sku);
-    });
+    return inventory.filter(
+      (item) =>
+        item?.listOnWebsite === true &&
+        Number(item?.quantity) > 0 &&
+        isEuSku(item?.sku),
+    );
   }, [inventory]);
 
+  // Search filter
   const filteredData = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
     if (!search) return visibleInventory;
 
-    const result = visibleInventory.filter((item) => {
+    return visibleInventory.filter((item) => {
       const title = String(item?.title || "").toLowerCase();
       const barcode = String(item?.barcode || "").toLowerCase();
       const vendor = String(item?.vendor || "").toLowerCase();
@@ -78,8 +158,17 @@ const Inventory = ({ onBack }) => {
         sku.includes(search)
       );
     });
-    return result;
   }, [visibleInventory, searchTerm]);
+
+  // Search + column filters = exactly what the table is showing (before pagination)
+  const exportData = useMemo(() => {
+    return filteredData.filter((item) =>
+      Object.entries(columnFilters).every(([key, values]) => {
+        if (!values || values.length === 0) return true;
+        return values.includes(item?.[key]);
+      }),
+    );
+  }, [filteredData, columnFilters]);
 
   const brandFilters = useMemo(() => {
     const unique = [
@@ -110,93 +199,43 @@ const Inventory = ({ onBack }) => {
       sorter: (a, b) =>
         String(a?.barcode || "").localeCompare(String(b?.barcode || "")),
       render: (_, record) => (
-        <span
-          style={{
-            color: "var(--color-primary, #cf2e2e)",
-            fontWeight: "bold",
-            fontFamily: "monospace",
-          }}
-        >
+        <span className="inv-barcode">
           {String(record?.barcode || "NO BARCODE")}
-        </span>
-      ),
-    },
-    {
-      title: "SKU",
-      key: "sku",
-      width: 150,
-      sorter: (a, b) => String(a?.sku || "").localeCompare(String(b?.sku || "")),
-      render: (_, record) => (
-        <span
-          style={{
-            display: "inline-block",
-            padding: "2px 8px",
-            fontSize: "12px",
-            fontWeight: "700",
-            borderRadius: "4px",
-            backgroundColor: "var(--color-primary-light, #fef2f2)",
-            color: "var(--color-primary, #cf2e2e)",
-            border: "1px solid var(--color-primary-light-border, #fee2e2)",
-            fontFamily: "monospace",
-          }}
-        >
-          {String(record?.sku || "EU").toUpperCase()}
         </span>
       ),
     },
     {
       title: "Product Name",
       key: "title",
-      width: 340,
+      width: 360,
       sorter: (a, b) =>
         String(a?.title || "").localeCompare(String(b?.title || "")),
       render: (_, record) => (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-          }}
-        >
+        <div className="inv-product-cell">
           {record?.image ? (
             <img
+              className="inv-product-img"
               src={record.image}
               alt={record?.imageAlt || record?.title || "Product"}
-              style={{
-                width: "48px",
-                height: "48px",
-                objectFit: "cover",
-                borderRadius: "8px",
-                backgroundColor: "#f3f4f6",
-                flexShrink: 0,
-              }}
+              loading="lazy"
             />
           ) : (
-            <div
-              style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "8px",
-                backgroundColor: "#f3f4f6",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                fontSize: "20px",
-              }}
-            >
-              📦
-            </div>
+            <div className="inv-product-img inv-product-img--empty">📦</div>
           )}
-          <div
-            style={{
-              color: "#111827",
-              fontWeight: "bold",
-            }}
-          >
+          <div className="inv-product-title">
             {String(record?.title || "NO TITLE")}
           </div>
         </div>
+      ),
+    },
+    {
+      title: "SKU",
+      key: "sku",
+      width: 220,
+      sorter: (a, b) =>
+        String(a?.sku || "").localeCompare(String(b?.sku || "")),
+      render: (_, record) => (
+        <span className="inv-sku-badge">{String(record?.sku || "-")}</span>
       ),
     },
     {
@@ -204,12 +243,13 @@ const Inventory = ({ onBack }) => {
       key: "vendor",
       width: 180,
       filters: brandFilters,
+      filteredValue: columnFilters.vendor || null,
       onFilter: (value, record) => record?.vendor === value,
       filterSearch: true,
       sorter: (a, b) =>
         String(a?.vendor || "").localeCompare(String(b?.vendor || "")),
       render: (_, record) => (
-        <span style={{ color: "#111827" }}>
+        <span className="inv-text-dark">
           {String(record?.vendor || "NO BRAND")}
         </span>
       ),
@@ -217,12 +257,13 @@ const Inventory = ({ onBack }) => {
     {
       title: "Platform",
       key: "platform",
-      width: 150,
+      width: 170,
       filters: platformFilters,
+      filteredValue: columnFilters.platform || null,
       onFilter: (value, record) => record?.platform === value,
       filterSearch: true,
       render: (_, record) => (
-        <span style={{ color: "#6b7280" }}>
+        <span className="inv-text-muted">
           {String(record?.platform || "-")}
         </span>
       ),
@@ -232,12 +273,11 @@ const Inventory = ({ onBack }) => {
       key: "rating",
       width: 120,
       filters: ratingFilters,
+      filteredValue: columnFilters.rating || null,
       onFilter: (value, record) => record?.rating === value,
       filterSearch: true,
       render: (_, record) => (
-        <span style={{ color: "#6b7280" }}>
-          {String(record?.rating || "-")}
-        </span>
+        <span className="inv-text-muted">{String(record?.rating || "-")}</span>
       ),
     },
     {
@@ -246,7 +286,7 @@ const Inventory = ({ onBack }) => {
       width: 90,
       sorter: (a, b) => Number(a?.quantity || 0) - Number(b?.quantity || 0),
       render: (_, record) => (
-        <span style={{ color: "#111827", fontWeight: "bold" }}>
+        <span className="inv-text-dark inv-bold">
           {Number(record?.quantity || 0)}
         </span>
       ),
@@ -259,15 +299,10 @@ const Inventory = ({ onBack }) => {
       render: (_, record) => {
         const price = Number(record?.price);
         if (!Number.isFinite(price)) {
-          return <span style={{ fontWeight: "bold" }}>-</span>;
+          return <span className="inv-bold">-</span>;
         }
         return (
-          <span
-            style={{
-              color: "#111827",
-              fontWeight: "bold",
-            }}
-          >
+          <span className="inv-text-dark inv-bold">
             {new Intl.NumberFormat("en-US", {
               style: "currency",
               currency: record?.currency || "USD",
@@ -278,176 +313,193 @@ const Inventory = ({ onBack }) => {
     },
   ];
 
+  // Exports whatever the table currently shows (search + column filters applied)
   const handleExport = () => {
-    const exportRows = filteredData.map((item) => ({
+    const exportRows = exportData.map((item) => ({
       Barcode: item?.barcode || "",
-      SKU: item?.sku || "",
       Title: item?.title || "",
+      SKU: item?.sku || "",
       Brand: item?.vendor || "",
       Platform: item?.platform || "",
       Rating: item?.rating || "",
-      Quantity: item?.quantity || 0,
-      Price: item?.price || 0,
+      Quantity: Number(item?.quantity || 0),
+      Price: Number(item?.price || 0),
       Currency: item?.currency || "USD",
     }));
+
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    worksheet["!cols"] = [
+      { wch: 16 },
+      { wch: 50 },
+      { wch: 26 },
+      { wch: 24 },
+      { wch: 20 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 10 },
+    ];
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "EU_Inventory");
-    XLSX.writeFile(workbook, `Teejay_EU_Inventory_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory");
+    XLSX.writeFile(workbook, "inventory.xlsx");
   };
 
-  const handleSyncSheet = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const products = await fetchProducts(true);
-      setInventory(products || []);
-    } catch (err) {
-      setError(err?.message || "Failed to re-sync data from Google Sheets.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (checkingSession) {
+    return (
+      <div className="inv-auth-page">
+        <div className="inv-checking">
+          <div className="inv-spinner" />
+          <p>Checking authorization...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="inv-auth-page">
+        <div className="inv-auth-card">
+          <div className="inv-auth-accent" />
+
+          <div className="inv-auth-head">
+            <div className="inv-auth-icon">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.8}
+                stroke="currentColor"
+                width="30"
+                height="30"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+                />
+              </svg>
+            </div>
+            <h2 className="inv-auth-title">Inventory Portal</h2>
+            <p className="inv-auth-text">
+              This page is password protected. Enter your access password to
+              view the live European inventory.
+            </p>
+          </div>
+
+          {!ENCRYPTED_URL ? (
+            <div className="inv-auth-config-error">
+              <strong>Error loading Inventory!</strong>
+            </div>
+          ) : (
+            <form onSubmit={handleUnlock} className="inv-auth-form">
+              <label className="inv-auth-label" htmlFor="inv-password">
+                Access Password
+              </label>
+
+              <div className="inv-auth-field">
+                <input
+                  id="inv-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter access password"
+                  className={`inv-auth-input ${decryptError ? "inv-auth-input--error" : ""}`}
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  disabled={decrypting}
+                  autoComplete="current-password"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  className="inv-auth-toggle"
+                  onClick={() => setShowPassword((s) => !s)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+
+              {decryptError && (
+                <p className="inv-auth-error animate-shake">{decryptError}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={decrypting || !passwordInput}
+                className="inv-auth-submit"
+              >
+                {decrypting ? "Decrypting..." : "Unlock Inventory"}
+              </button>
+            </form>
+          )}
+
+          <p className="inv-auth-foot">
+            Authorized distributors only. Need access? <br />Contact your Teejay
+            account manager.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="inventory-portal p-6 md:p-8 bg-bg-light min-h-screen" style={{ minHeight: '90vh', padding: '2rem 1.5rem', backgroundColor: '#f8fafc' }}>
-      <div className="max-w-7xl mx-auto space-y-6" style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        {/* Navigation / Header Bar */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-          <div>
-            <p className="text-text-muted text-sm" style={{ color: '#64748b', fontSize: '0.875rem', margin: 0 }}>
+    <div className="inventory-portal inv-page">
+      <div className="inv-container">
+        {/* Header */}
+        <div className="inv-header">
+          <div className="inv-heading-block">
+            <h1 className="inv-title">Product Inventory</h1>
+            <p className="inv-subtitle">
               Live availability and verified European distributor stock levels
             </p>
           </div>
 
-          <div className="flex items-center gap-3" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div className="inv-actions">
             <input
               type="text"
-              placeholder="Search by title, barcode, vendor, SKU..."
+              placeholder="Search by title, barcode, SKU, vendor..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="p-2.5 border border-border-light rounded-lg text-sm w-full md:w-80 outline-none focus:ring-2 focus:ring-red-500/20"
-              style={{
-                padding: '10px 14px',
-                border: '1px solid #cbd5e1',
-                borderRadius: '10px',
-                fontSize: '0.875rem',
-                minWidth: '260px',
-                outline: 'none',
-                backgroundColor: '#ffffff',
-                boxShadow: 'var(--shadow-sm)'
-              }}
+              className="inv-search"
             />
 
-            {/* Sync Live Sheet Button */}
-            <button
-              onClick={handleSyncSheet}
-              disabled={loading}
-              title="Re-sync latest data from Google Sheet"
-              style={{
-                padding: '10px 14px',
-                backgroundColor: '#ffffff',
-                color: 'var(--color-text-dark, #111827)',
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                borderRadius: '10px',
-                border: '1px solid #cbd5e1',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: 'var(--shadow-sm)',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => {
-                if (!loading) {
-                  e.currentTarget.style.borderColor = 'var(--color-primary, #cf2e2e)';
-                  e.currentTarget.style.color = 'var(--color-primary, #cf2e2e)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!loading) {
-                  e.currentTarget.style.borderColor = '#cbd5e1';
-                  e.currentTarget.style.color = 'var(--color-text-dark, #111827)';
-                }
-              }}
-            >
-              <span
-                className="material-symbols-outlined"
-                style={{
-                  fontSize: '18px',
-                  animation: loading ? 'spin 1s linear infinite' : 'none'
-                }}
-              >
-                sync
-              </span>
-              <span>Sync Sheet</span>
-            </button>
-
-            {/* Export Button matching Website Theme */}
             <button
               onClick={handleExport}
-              className="btn-solid"
-              style={{
-                padding: '10px 18px',
-                background: 'linear-gradient(135deg, var(--color-primary, #cf2e2e) 0%, var(--color-primary-hover, #b32020) 100%)',
-                color: '#ffffff',
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                borderRadius: '10px',
-                border: '1px solid rgba(207, 46, 46, 0.2)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 4px 14px rgba(207, 46, 46, 0.25)',
-                transition: 'all 0.2s ease',
-                fontFamily: 'var(--font-body)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 6px 18px rgba(207, 46, 46, 0.35)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 14px rgba(207, 46, 46, 0.25)';
-              }}
+              className="inv-export-btn"
+              disabled={exportData.length === 0}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+              <span className="material-symbols-outlined inv-btn-icon">
                 download
               </span>
-              <span>Export Manifest ({filteredData.length})</span>
+              <span>Export ({exportData.length})</span>
             </button>
           </div>
         </div>
 
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center justify-between" style={{ padding: '1rem', backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="inv-error">
             <span>{error}</span>
             <button
               onClick={() => setRetryCount((c) => c + 1)}
-              className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-md hover:bg-red-700"
-              style={{ padding: '6px 12px', backgroundColor: 'var(--color-primary, #cf2e2e)', color: '#ffffff', fontSize: '0.75rem', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+              className="inv-retry-btn"
             >
               Retry
             </button>
           </div>
         )}
 
-        <ConfigProvider
-          theme={{
-            token: {
-              colorPrimary: '#cf2e2e',
-            },
-          }}
-        >
+        <ConfigProvider theme={{ token: { colorPrimary: "#cf2e2e" } }}>
           <Table
             columns={columns}
             dataSource={filteredData}
             loading={loading}
-            rowKey={(record) => record.barcode || record.sku || record.title}
-            pagination={{ pageSize: 15 }}
-            scroll={{ x: 'max-content' }}
+            rowKey={(record) => record.id || record.barcode || record.title}
+            pagination={{
+              pageSize: 15,
+              showSizeChanger: false,
+              responsive: true,
+            }}
+            scroll={{ x: "max-content" }}
+            onChange={(pagination, filters) => setColumnFilters(filters || {})}
           />
         </ConfigProvider>
       </div>
