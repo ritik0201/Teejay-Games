@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { ConfigProvider, Table } from "antd";
 import { decryptText } from "../utils/crypto";
-import { fetchProducts, isEuSku } from "../services/shopify";
+import { fetchProducts, isUkSku } from "../services/shopify";
 import * as XLSX from "xlsx";
 import "./Inventory.css";
 
@@ -130,13 +130,13 @@ const Inventory = () => {
     };
   }, [isAuthenticated, retryCount]);
 
-  // Only listed, in-stock products whose SKU has "EU" as its own segment
+  // Only listed, in-stock products whose SKU starts with "UK"
   const visibleInventory = useMemo(() => {
     return inventory.filter(
       (item) =>
         item?.listOnWebsite === true &&
         Number(item?.quantity) > 0 &&
-        isEuSku(item?.sku),
+        isUkSku(item?.sku),
     );
   }, [inventory]);
 
@@ -344,7 +344,7 @@ const Inventory = () => {
     XLSX.writeFile(workbook, "inventory.xlsx");
   };
 
-    if (checkingSession) {
+  if (checkingSession) {
     return (
       <div className="inv-auth-page">
         <div className="inv-checking">
@@ -382,7 +382,7 @@ const Inventory = () => {
             <h2 className="inv-auth-title">Inventory Portal</h2>
             <p className="inv-auth-text">
               This page is password protected. Enter your access password to
-              view the live European inventory.
+              view the live UK inventory.
             </p>
           </div>
 
@@ -449,7 +449,7 @@ const Inventory = () => {
           <div className="inv-heading-block">
             <h1 className="inv-title">Product Inventory</h1>
             <p className="inv-subtitle">
-              Live availability and verified European distributor stock levels
+              Live availability and verified UK distributor stock levels
             </p>
           </div>
 

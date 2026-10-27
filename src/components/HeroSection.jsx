@@ -172,21 +172,10 @@ export const HeroSection = ({ onNavigate }) => {
                   e.preventDefault();
                   scrollTo('apply');
                 }}
-                className="btn-secondary"
-                style={{ padding: '0.85rem 1.75rem', fontSize: '1rem' }}
-              >
-                Apply for Wholesale Account
-              </a>
-              <a
-                href="#pricing-matrix"
-                onClick={(e) => {
-                  e.preventDefault();
-                  scrollTo('pricing-matrix');
-                }}
                 className="btn-outline"
                 style={{ padding: '0.85rem 1.75rem', fontSize: '1rem' }}
               >
-                Browse Pricing Matrix
+                Apply for Wholesale Account
               </a>
             </div>
           </div>

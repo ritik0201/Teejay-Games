@@ -15,10 +15,11 @@ const SHOPIFY_ENDPOINT = `https://${STORE_DOMAIN}/api/2024-10/graphql.json`;
 const PRODUCTS_PER_PAGE = 100;
 const VARIANTS_PER_PRODUCT = 100;
 
-// True only when "EU" is its own segment of the SKU, e.g. "ABC_EU", "ABC-EU", "EU-123".
-// "XB360ARCADEUNPLUG-001", "PSVCRIMGIRLSINVITE-EUR" and "NSWDUN_OF_NAHLBEUK" do NOT match.
-export const isEuSku = (sku) =>
-  /(^|[^A-Za-z0-9])EU($|[^A-Za-z0-9])/i.test(String(sku || ""));
+// True only when the SKU starts with "UK", e.g. "UK-12345", "UK_ABC", "UKABC".
+// If you don't want matches like "UKULELE-1", swap in the stricter version below.
+export const isUkSku = (sku) => /^UK/i.test(String(sku || "").trim());
+// export const isUkSku = (sku) =>
+//   /^UK($|[^A-Za-z0-9])/i.test(String(sku || "").trim());
 
 const PRODUCTS_QUERY = `
   query GetProducts($first: Int!, $after: String) {
@@ -133,9 +134,9 @@ export async function fetchProducts() {
 
     const barcode = variants.find((variant) => variant?.barcode)?.barcode || "";
 
-    // If a product has several variants, prefer the one with an EU SKU
+    // If a product has several variants, prefer the one with a UK SKU
     const skus = variants.map((v) => v?.sku).filter(Boolean);
-    const sku = skus.find(isEuSku) || skus[0] || "";
+    const sku = skus.find(isUkSku) || skus[0] || "";
 
     const totalQuantity = variants.reduce(
       (sum, variant) => sum + (variant?.quantityAvailable || 0),
