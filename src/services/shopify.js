@@ -1,25 +1,17 @@
-// =========================================================
 // src/services/shopify.js
-// =========================================================
-//
-// Connects to Shopify Storefront API, fetches products,
-// handles pagination, and converts data for Inventory.jsx
-// =========================================================
+// Fetches all products from the Shopify Storefront API (with pagination)
+// and converts them into the shape used by Inventory.jsx.
 
 const STORE_DOMAIN = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN;
 const STOREFRONT_TOKEN = import.meta.env.VITE_SHOPIFY_STOREFRONT_TOKEN;
-
 const SHOPIFY_ENDPOINT = `https://${STORE_DOMAIN}/api/2024-10/graphql.json`;
 
 // Lower these if Shopify ever throttles or rejects the query
 const PRODUCTS_PER_PAGE = 100;
 const VARIANTS_PER_PRODUCT = 100;
 
-// True only when the SKU starts with "UK", e.g. "UK-12345", "UK_ABC", "UKABC".
-// If you don't want matches like "UKULELE-1", swap in the stricter version below.
+// True when the SKU starts with "UK", e.g. "UK-12345", "UK_ABC", "UKABC"
 export const isUkSku = (sku) => /^UK/i.test(String(sku || "").trim());
-// export const isUkSku = (sku) =>
-//   /^UK($|[^A-Za-z0-9])/i.test(String(sku || "").trim());
 
 const PRODUCTS_QUERY = `
   query GetProducts($first: Int!, $after: String) {
@@ -29,14 +21,11 @@ const PRODUCTS_QUERY = `
         node {
           id
           title
-          description
           vendor
           variants(first: ${VARIANTS_PER_PRODUCT}) {
             nodes {
-              id
               sku
               barcode
-              title
               quantityAvailable
             }
           }
@@ -56,9 +45,6 @@ const PRODUCTS_QUERY = `
           platformMeta: metafield(namespace: "custom", key: "video_game_platform") {
             value
           }
-          ageRatingMeta: metafield(namespace: "custom", key: "age_rating") {
-            value
-          }
         }
       }
       pageInfo {
@@ -68,7 +54,6 @@ const PRODUCTS_QUERY = `
   }
 `;
 
-// Fetch a single page of products
 async function fetchProductsPage(after = null) {
   const response = await fetch(SHOPIFY_ENDPOINT, {
     method: "POST",
@@ -91,15 +76,47 @@ async function fetchProductsPage(after = null) {
   if (json.errors) {
     throw new Error(json.errors.map((error) => error.message).join(", "));
   }
-
-  if (!json.data || !json.data.products) {
+  if (!json.data?.products) {
     throw new Error("Shopify returned invalid product data.");
   }
 
   return json.data.products;
 }
 
-// Fetch all products, handling pagination
+function normalizeProduct({ node }) {
+  const variants = node?.variants?.nodes || [];
+
+  const barcode = variants.find((v) => v?.barcode)?.barcode || "";
+
+  // If a product has several variants, prefer the one with a UK SKU
+  const skus = variants.map((v) => v?.sku).filter(Boolean);
+  const sku = skus.find(isUkSku) || skus[0] || "";
+
+  const quantity = variants.reduce(
+    (sum, v) => sum + (v?.quantityAvailable || 0),
+    0,
+  );
+
+  const listOnWebsiteRaw = String(node?.listOnWebsiteMeta?.value || "")
+    .trim()
+    .toLowerCase();
+
+  return {
+    id: node?.id || "",
+    title: node?.title || "",
+    vendor: node?.vendor || "",
+    barcode,
+    sku,
+    image: node?.featuredImage?.url || null,
+    imageAlt: node?.featuredImage?.altText || node?.title || "Product",
+    price: Number(node?.priceRange?.minVariantPrice?.amount) || 0,
+    currency: node?.priceRange?.minVariantPrice?.currencyCode || "USD",
+    quantity,
+    listOnWebsite: ["true", "yes"].includes(listOnWebsiteRaw),
+    platform: node?.platformMeta?.value || "",
+  };
+}
+
 export async function fetchProducts() {
   if (!STORE_DOMAIN) {
     throw new Error(
@@ -112,62 +129,18 @@ export async function fetchProducts() {
     );
   }
 
-  let allProducts = [];
+  const edges = [];
   let cursor = null;
   let hasNextPage = true;
 
   while (hasNextPage) {
     const page = await fetchProductsPage(cursor);
-    allProducts = allProducts.concat(page.edges);
-    hasNextPage = page.pageInfo.hasNextPage;
+    edges.push(...page.edges);
 
-    if (page.edges.length > 0) {
-      cursor = page.edges[page.edges.length - 1].cursor;
-    } else {
-      cursor = null;
-      hasNextPage = false;
-    }
+    const lastEdge = page.edges[page.edges.length - 1];
+    cursor = lastEdge?.cursor ?? null;
+    hasNextPage = page.pageInfo.hasNextPage && Boolean(lastEdge);
   }
 
-  return allProducts.map(({ node }) => {
-    const variants = node?.variants?.nodes || [];
-
-    const barcode = variants.find((variant) => variant?.barcode)?.barcode || "";
-
-    // If a product has several variants, prefer the one with a UK SKU
-    const skus = variants.map((v) => v?.sku).filter(Boolean);
-    const sku = skus.find(isUkSku) || skus[0] || "";
-
-    const totalQuantity = variants.reduce(
-      (sum, variant) => sum + (variant?.quantityAvailable || 0),
-      0,
-    );
-
-    const price = Number(node?.priceRange?.minVariantPrice?.amount) || 0;
-    const currency = node?.priceRange?.minVariantPrice?.currencyCode || "USD";
-
-    const listOnWebsiteRaw = String(node?.listOnWebsiteMeta?.value || "")
-      .trim()
-      .toLowerCase();
-    const listOnWebsite =
-      listOnWebsiteRaw === "true" || listOnWebsiteRaw === "yes";
-
-    return {
-      id: node?.id || "",
-      title: node?.title || "",
-      description: node?.description || "",
-      vendor: node?.vendor || "",
-      barcode,
-      sku,
-      image: node?.featuredImage?.url || null,
-      imageAlt: node?.featuredImage?.altText || node?.title || "Product",
-      price,
-      currency,
-      brand: node?.vendor || "",
-      quantity: totalQuantity,
-      listOnWebsite,
-      platform: node?.platformMeta?.value || "",
-      rating: node?.ageRatingMeta?.value || "",
-    };
-  });
+  return edges.map(normalizeProduct);
 }

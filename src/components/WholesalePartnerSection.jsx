@@ -421,7 +421,7 @@ export const WholesalePartnerSection = ({ onShowToast }) => {
                   value={formData.taxId}
                   onChange={handleChange}
                   required
-                  placeholder="Reseller Certificate / Company Registration / Tax ID"
+                  placeholder="Company Registration / Wet ID"
                   style={{
                     width: '100%',
                     padding: '0.85rem 1rem',

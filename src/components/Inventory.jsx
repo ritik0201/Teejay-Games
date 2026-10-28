@@ -1,12 +1,34 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { ConfigProvider, Table } from "antd";
+import * as XLSX from "xlsx";
 import { decryptText } from "../utils/crypto";
 import { fetchProducts, isUkSku } from "../services/shopify";
-import * as XLSX from "xlsx";
 import "./Inventory.css";
+
+const ENCRYPTED_URL = import.meta.env.VITE_ENCRYPTED_INVENTORY_URL;
+const SESSION_KEY = "inventory_password";
 
 // How often the table silently re-checks Shopify for changes
 const REFRESH_INTERVAL_MS = 60 * 1000;
+
+/* ----------------------------- helpers ----------------------------- */
+
+// Returns true when the password successfully decrypts the inventory URL
+const verifyPassword = async (password) => {
+  const decrypted = await decryptText(ENCRYPTED_URL, password);
+  return decrypted.startsWith("http");
+};
+
+const sortByText = (key) => (a, b) =>
+  String(a?.[key] || "").localeCompare(String(b?.[key] || ""));
+
+const sortByNumber = (key) => (a, b) =>
+  Number(a?.[key] || 0) - Number(b?.[key] || 0);
+
+const formatPrice = (price, currency = "USD") =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(price);
+
+/* ----------------------------- component ----------------------------- */
 
 const Inventory = () => {
   const [inventory, setInventory] = useState([]);
@@ -14,67 +36,58 @@ const Inventory = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [retryCount, setRetryCount] = useState(0);
-  // Column filters currently applied in the table (vendor / platform / rating)
   const [columnFilters, setColumnFilters] = useState({});
   const lastSignature = useRef(null);
 
-  // Authentication state
+  // Authentication
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [passwordInput, setPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [decrypting, setDecrypting] = useState(false);
   const [decryptError, setDecryptError] = useState(null);
-  const [checkingSession, setCheckingSession] = useState(true);
 
-  const ENCRYPTED_URL = import.meta.env.VITE_ENCRYPTED_INVENTORY_URL;
-
-  const [showPassword, setShowPassword] = useState(false);
-
+  /* ---- restore saved session ---- */
   useEffect(() => {
     const checkSession = async () => {
-      const savedPassword = sessionStorage.getItem("inventory_password");
+      const savedPassword = sessionStorage.getItem(SESSION_KEY);
       if (savedPassword && ENCRYPTED_URL) {
         try {
-          const decrypted = await decryptText(ENCRYPTED_URL, savedPassword);
-          if (decrypted.startsWith("http")) {
+          if (await verifyPassword(savedPassword)) {
             setIsAuthenticated(true);
           } else {
-            sessionStorage.removeItem("inventory_password");
+            sessionStorage.removeItem(SESSION_KEY);
           }
-        } catch (e) {
-          sessionStorage.removeItem("inventory_password");
+        } catch {
+          sessionStorage.removeItem(SESSION_KEY);
         }
       }
       setCheckingSession(false);
     };
     checkSession();
-  }, [ENCRYPTED_URL]);
+  }, []);
 
   const handleUnlock = async (e) => {
-    if (e) e.preventDefault();
+    e.preventDefault();
     if (!passwordInput.trim()) return;
 
     setDecrypting(true);
     setDecryptError(null);
 
     try {
-      if (!ENCRYPTED_URL) {
-        throw new Error("No encrypted inventory URL configured.");
-      }
-      const decrypted = await decryptText(ENCRYPTED_URL, passwordInput);
-      if (decrypted.startsWith("http")) {
-        sessionStorage.setItem("inventory_password", passwordInput);
-        setIsAuthenticated(true);
-      } else {
+      if (!(await verifyPassword(passwordInput))) {
         throw new Error("Invalid password");
       }
-    } catch (err) {
+      sessionStorage.setItem(SESSION_KEY, passwordInput);
+      setIsAuthenticated(true);
+    } catch {
       setDecryptError("Incorrect password. Access denied.");
     } finally {
       setDecrypting(false);
     }
   };
 
-  // Load from Shopify, then keep refreshing in the background
+  /* ---- load from Shopify, then refresh in the background ---- */
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -84,6 +97,7 @@ const Inventory = () => {
     const load = async (silent) => {
       if (inFlight) return;
       inFlight = true;
+
       try {
         if (!silent) {
           setLoading(true);
@@ -92,8 +106,7 @@ const Inventory = () => {
         const products = await fetchProducts();
         if (cancelled) return;
 
-        // Only update state when something actually changed,
-        // so the table doesn't re-render on every poll
+        // Only update state when something changed, so polling doesn't re-render the table
         const signature = JSON.stringify(products);
         if (signature !== lastSignature.current) {
           lastSignature.current = signature;
@@ -115,12 +128,12 @@ const Inventory = () => {
       }
     };
 
-    load(false);
-
-    const intervalId = setInterval(() => load(true), REFRESH_INTERVAL_MS);
     const onVisible = () => {
       if (document.visibilityState === "visible") load(true);
     };
+
+    load(false);
+    const intervalId = setInterval(() => load(true), REFRESH_INTERVAL_MS);
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
@@ -130,128 +143,79 @@ const Inventory = () => {
     };
   }, [isAuthenticated, retryCount]);
 
-  // Only listed, in-stock products whose SKU starts with "UK"
-  const visibleInventory = useMemo(() => {
-    return inventory.filter(
-      (item) =>
-        item?.listOnWebsite === true &&
-        Number(item?.quantity) > 0 &&
-        isUkSku(item?.sku),
-    );
-  }, [inventory]);
+  /* ---- derived data ---- */
 
-  // Search filter
+  // Only listed, in-stock products whose SKU starts with "UK"
+  const visibleInventory = useMemo(
+    () =>
+      inventory.filter(
+        (item) =>
+          item.listOnWebsite && Number(item.quantity) > 0 && isUkSku(item.sku),
+      ),
+    [inventory],
+  );
+
+  // Search by title, barcode, SKU or vendor
   const filteredData = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
     if (!search) return visibleInventory;
 
-    return visibleInventory.filter((item) => {
-      const title = String(item?.title || "").toLowerCase();
-      const barcode = String(item?.barcode || "").toLowerCase();
-      const vendor = String(item?.vendor || "").toLowerCase();
-      const sku = String(item?.sku || "").toLowerCase();
-
-      return (
-        title.includes(search) ||
-        barcode.includes(search) ||
-        vendor.includes(search) ||
-        sku.includes(search)
-      );
-    });
+    return visibleInventory.filter((item) =>
+      [item.title, item.barcode, item.sku, item.vendor].some((field) =>
+        String(field || "").toLowerCase().includes(search),
+      ),
+    );
   }, [visibleInventory, searchTerm]);
 
-  // Search + column filters = exactly what the table is showing (before pagination)
-  const exportData = useMemo(() => {
-    return filteredData.filter((item) =>
-      Object.entries(columnFilters).every(([key, values]) => {
-        if (!values || values.length === 0) return true;
-        return values.includes(item?.[key]);
-      }),
-    );
-  }, [filteredData, columnFilters]);
+  // Search + column filters = exactly what the table shows (before pagination)
+  const exportData = useMemo(
+    () =>
+      filteredData.filter((item) =>
+        Object.entries(columnFilters).every(
+          ([key, values]) => !values?.length || values.includes(item[key]),
+        ),
+      ),
+    [filteredData, columnFilters],
+  );
 
-  const brandFilters = useMemo(() => {
-    const unique = [
-      ...new Set(visibleInventory.map((i) => i["vendor"]).filter(Boolean)),
-    ];
-    return unique.map((b) => ({ text: b, value: b }));
-  }, [visibleInventory]);
+  const platformFilters = useMemo(
+    () =>
+      [...new Set(visibleInventory.map((i) => i.platform).filter(Boolean))].map(
+        (platform) => ({ text: platform, value: platform }),
+      ),
+    [visibleInventory],
+  );
 
-  const platformFilters = useMemo(() => {
-    const unique = [
-      ...new Set(visibleInventory.map((i) => i["platform"]).filter(Boolean)),
-    ];
-    return unique.map((p) => ({ text: p, value: p }));
-  }, [visibleInventory]);
-
-  const ratingFilters = useMemo(() => {
-    const unique = [
-      ...new Set(visibleInventory.map((i) => i["rating"]).filter(Boolean)),
-    ];
-    return unique.map((r) => ({ text: `Rating: ${r}`, value: r }));
-  }, [visibleInventory]);
-
+  /* ---- table columns ---- */
   const columns = [
     {
       title: "Barcode",
       key: "barcode",
       width: 160,
-      sorter: (a, b) =>
-        String(a?.barcode || "").localeCompare(String(b?.barcode || "")),
+      sorter: sortByText("barcode"),
       render: (_, record) => (
-        <span className="inv-barcode">
-          {String(record?.barcode || "NO BARCODE")}
-        </span>
+        <span className="inv-barcode">{record.barcode || "NO BARCODE"}</span>
       ),
     },
     {
       title: "Product Name",
       key: "title",
       width: 360,
-      sorter: (a, b) =>
-        String(a?.title || "").localeCompare(String(b?.title || "")),
+      sorter: sortByText("title"),
       render: (_, record) => (
         <div className="inv-product-cell">
-          {record?.image ? (
+          {record.image ? (
             <img
               className="inv-product-img"
               src={record.image}
-              alt={record?.imageAlt || record?.title || "Product"}
+              alt={record.imageAlt || record.title || "Product"}
               loading="lazy"
             />
           ) : (
             <div className="inv-product-img inv-product-img--empty">📦</div>
           )}
-          <div className="inv-product-title">
-            {String(record?.title || "NO TITLE")}
-          </div>
+          <div className="inv-product-title">{record.title || "NO TITLE"}</div>
         </div>
-      ),
-    },
-    {
-      title: "SKU",
-      key: "sku",
-      width: 220,
-      sorter: (a, b) =>
-        String(a?.sku || "").localeCompare(String(b?.sku || "")),
-      render: (_, record) => (
-        <span className="inv-sku-badge">{String(record?.sku || "-")}</span>
-      ),
-    },
-    {
-      title: "Brand",
-      key: "vendor",
-      width: 180,
-      filters: brandFilters,
-      filteredValue: columnFilters.vendor || null,
-      onFilter: (value, record) => record?.vendor === value,
-      filterSearch: true,
-      sorter: (a, b) =>
-        String(a?.vendor || "").localeCompare(String(b?.vendor || "")),
-      render: (_, record) => (
-        <span className="inv-text-dark">
-          {String(record?.vendor || "NO BRAND")}
-        </span>
       ),
     },
     {
@@ -260,89 +224,66 @@ const Inventory = () => {
       width: 170,
       filters: platformFilters,
       filteredValue: columnFilters.platform || null,
-      onFilter: (value, record) => record?.platform === value,
+      onFilter: (value, record) => record.platform === value,
       filterSearch: true,
       render: (_, record) => (
-        <span className="inv-text-muted">
-          {String(record?.platform || "-")}
-        </span>
-      ),
-    },
-    {
-      title: "Rating",
-      key: "rating",
-      width: 120,
-      filters: ratingFilters,
-      filteredValue: columnFilters.rating || null,
-      onFilter: (value, record) => record?.rating === value,
-      filterSearch: true,
-      render: (_, record) => (
-        <span className="inv-text-muted">{String(record?.rating || "-")}</span>
+        <span className="inv-text-muted">{record.platform || "-"}</span>
       ),
     },
     {
       title: "Qty",
       key: "quantity",
       width: 90,
-      sorter: (a, b) => Number(a?.quantity || 0) - Number(b?.quantity || 0),
+      sorter: sortByNumber("quantity"),
       render: (_, record) => (
         <span className="inv-text-dark inv-bold">
-          {Number(record?.quantity || 0)}
+          {Number(record.quantity || 0)}
         </span>
       ),
     },
     {
-      title: "SRP",
+      title: "Price",
       key: "price",
       width: 120,
-      sorter: (a, b) => Number(a?.price || 0) - Number(b?.price || 0),
+      sorter: sortByNumber("price"),
       render: (_, record) => {
-        const price = Number(record?.price);
-        if (!Number.isFinite(price)) {
-          return <span className="inv-bold">-</span>;
-        }
-        return (
+        const price = Number(record.price);
+        return Number.isFinite(price) ? (
           <span className="inv-text-dark inv-bold">
-            {new Intl.NumberFormat("en-US", {
-              style: "currency",
-              currency: record?.currency || "USD",
-            }).format(price)}
+            {formatPrice(price, record.currency)}
           </span>
+        ) : (
+          <span className="inv-bold">-</span>
         );
       },
     },
   ];
 
-  // Exports whatever the table currently shows (search + column filters applied)
+  /* ---- export ---- */
   const handleExport = () => {
-    const exportRows = exportData.map((item) => ({
-      Barcode: item?.barcode || "",
-      Title: item?.title || "",
-      SKU: item?.sku || "",
-      Brand: item?.vendor || "",
-      Platform: item?.platform || "",
-      Rating: item?.rating || "",
-      Quantity: Number(item?.quantity || 0),
-      Price: Number(item?.price || 0),
-      Currency: item?.currency || "USD",
+    const rows = exportData.map((item) => ({
+      Barcode: item.barcode || "",
+      Title: item.title || "",
+      Platform: item.platform || "",
+      Quantity: Number(item.quantity || 0),
+      Price: Number(item.price || 0),
     }));
 
-    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    const worksheet = XLSX.utils.json_to_sheet(rows);
     worksheet["!cols"] = [
       { wch: 16 },
       { wch: 50 },
-      { wch: 26 },
-      { wch: 24 },
       { wch: 20 },
       { wch: 10 },
       { wch: 10 },
-      { wch: 10 },
-      { wch: 10 },
     ];
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory");
     XLSX.writeFile(workbook, "inventory.xlsx");
   };
+
+  /* ----------------------------- render ----------------------------- */
 
   if (checkingSession) {
     return (
@@ -411,7 +352,7 @@ const Inventory = () => {
                 <button
                   type="button"
                   className="inv-auth-toggle"
-                  onClick={() => setShowPassword((s) => !s)}
+                  onClick={() => setShowPassword((show) => !show)}
                   tabIndex={-1}
                 >
                   {showPassword ? "Hide" : "Show"}
@@ -433,8 +374,8 @@ const Inventory = () => {
           )}
 
           <p className="inv-auth-foot">
-            Authorized distributors only. Need access? <br />Contact your Teejay
-            account manager.
+            Authorized distributors only. Need access? <br />
+            Contact your Teejay account manager.
           </p>
         </div>
       </div>
@@ -444,7 +385,6 @@ const Inventory = () => {
   return (
     <div className="inventory-portal inv-page">
       <div className="inv-container">
-        {/* Header */}
         <div className="inv-header">
           <div className="inv-heading-block">
             <h1 className="inv-title">Product Inventory</h1>
@@ -479,7 +419,7 @@ const Inventory = () => {
           <div className="inv-error">
             <span>{error}</span>
             <button
-              onClick={() => setRetryCount((c) => c + 1)}
+              onClick={() => setRetryCount((count) => count + 1)}
               className="inv-retry-btn"
             >
               Retry
@@ -493,13 +433,9 @@ const Inventory = () => {
             dataSource={filteredData}
             loading={loading}
             rowKey={(record) => record.id || record.barcode || record.title}
-            pagination={{
-              pageSize: 15,
-              showSizeChanger: false,
-              responsive: true,
-            }}
+            pagination={{ pageSize: 15, showSizeChanger: false, responsive: true }}
             scroll={{ x: "max-content" }}
-            onChange={(pagination, filters) => setColumnFilters(filters || {})}
+            onChange={(_, filters) => setColumnFilters(filters || {})}
           />
         </ConfigProvider>
       </div>
