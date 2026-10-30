@@ -5,6 +5,11 @@ import { CheckCircleOutlined } from '@ant-design/icons';
 const ThankYouModal = ({ onClose, onNavigate }) => {
   return (
     <Modal
+    style={
+       {
+        textAlign: 'center',
+       } 
+      }
       open={true}
       centered
       onCancel={onClose}
